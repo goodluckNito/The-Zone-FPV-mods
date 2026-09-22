@@ -3,7 +3,7 @@
 - extract the ZIP
 - move the contents of the folder to steamapps\common\The Zone FPV\
 
-override.cfg and the folder inside should be next to thezone.exe. If you have other mods, you can just add the line from the folder's override.cfg to your main one.
+override.cfg and the analog400mw folder inside should be next to thezone.exe. If you have other mods, you can just add the line from the folder's override.cfg to your main one.
 
 To uninstall, just delete the override.cfg and the analog400mw folder from your game directory.
 
