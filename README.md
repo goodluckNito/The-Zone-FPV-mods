@@ -12,5 +12,7 @@ To uninstall, just delete the override.cfg and the analog400mw folder from your 
 ## analog400mw
 simulates 400mw analog signal quality
 
+![400mw](400mw.webp)
+
 the shader is tunable with a settings.cfg in the folder.
 
