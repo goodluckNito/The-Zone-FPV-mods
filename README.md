@@ -1,5 +1,5 @@
 # How to use
-- download the zip for this repo under Code -> Download ZIP
+- download the zip for this repo under Code -> Download ZIP, or on the right click Releases and download the ZIP for the specific shader you want (currently only one)
 - extract the ZIP
 - move the contents of the folder to steamapps\common\The Zone FPV\
 
