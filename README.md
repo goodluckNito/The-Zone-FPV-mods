@@ -5,6 +5,8 @@
 
 override.cfg and the analog400mw folder inside should be next to thezone.exe. If you have other mods, you can just add the line from the folder's override.cfg to your main one.
 
+![Installed](installed.png)
+
 To uninstall, just delete the override.cfg and the analog400mw folder from your game directory.
 
 ## analog400mw
