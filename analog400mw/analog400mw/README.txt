@@ -1,4 +1,4 @@
-analog400mw 1.0
+analog400mw 1.0.1
 ==================
 
 Analog 5.8 GHz FPV video for The Zone FPV, modelled on a 400 mW analog whoop
