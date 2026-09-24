@@ -1,13 +1,15 @@
-analog400mw 1.1
+analog400mw 1.2
 ==================
 
 Analog 5.8 GHz FPV video for The Zone FPV, modelled on a 400 mW analog whoop
 (Meteor75 Pro II class). Close in, the picture is soft with slightly muted
 colour, and every so often a hit knocks the colour off for a frame: below one
-line it swings through the wrong hues and back. Hits come in bursts, a few a
-second. With range and walls between you and the drone, colour bands, white
-snow and sideways warble appear more and more often. At the edge of range the
-feed breaks up into random-colour noise and sometimes drops to black and white.
+line, coloured things swing through the wrong hues and back, lighter and
+darker parts each their own way, while night sky and grey surfaces stay as
+they are. Hits come in bursts, several a second. With range and walls between
+you and the drone, colour bands, white snow and sideways warble appear more
+and more often. At the edge of range the feed breaks up into random-colour
+noise and sometimes drops to black and white.
 
 
 INSTALL

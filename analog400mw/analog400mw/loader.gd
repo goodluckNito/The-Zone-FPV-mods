@@ -1,5 +1,5 @@
 extends Node
-## analog400mw 1.1
+## analog400mw 1.2
 ##
 ## Registered as an autoload by override.cfg in the game folder. At startup it
 ## loads small resource packs over three of the game's files, then applies
@@ -7,7 +7,7 @@ extends Node
 ##
 ## Uninstall: delete override.cfg and the analog400mw folder.
 
-const VERSION := "1.1"
+const VERSION := "1.2"
 const DIR := "res://analog400mw/"
 const SHADER_PATH := "res://ingame/ingame_main.gdshader"
 
@@ -15,7 +15,7 @@ const SHADER_PATH := "res://ingame/ingame_main.gdshader"
 # the version this release was built against, so a game update that changes
 # one of them disables that part instead of loading an outdated copy.
 const TARGETS := [
-	{"name": "shader", "pck": "shader.pck", "entry": "ingame/ingame_main.gdshader", "stock_md5": "7fb773464b378d17733ac92e5eaddaeb", "mod_md5": "fcd4511b1b0541ae8245b6b72078e1c0"},
+	{"name": "shader", "pck": "shader.pck", "entry": "ingame/ingame_main.gdshader", "stock_md5": "7fb773464b378d17733ac92e5eaddaeb", "mod_md5": "f64da65f35e441d02e368c0216d0e8ce"},
 	{"name": "signal calc", "pck": "signal_calc.pck", "entry": "ingame/ingame_main.gdc", "stock_md5": "d9bd33fdaf46a65c41dd0a3c8f4891a8", "mod_md5": "2f61d497f5e8bb0393b0a670c68d6005"},
 	{"name": "menu label", "pck": "menu_label.pck", "entry": ".godot/exported/133200997/export-393508ea6b566b4a8186d1dfb73de934-game_settings.scn", "stock_md5": "f46d7d76005ecdafb8bd708be397dfcc", "mod_md5": "39cecfcce4212fdf5f66770e89cd2078"},
 ]
