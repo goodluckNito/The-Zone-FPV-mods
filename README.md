@@ -7,6 +7,7 @@ override.cfg, the zonemods folder, and the folder for the mods you want should a
 
 Each mod has its own settings.cfg where they can be disabled individually, as well as many settings you can tweak.
 
+
 ## analog400mw
 simulates 400mw analog signal quality
 
@@ -26,4 +27,22 @@ OSD simulation, with features from Betaflight and BrainFPV. Replaces a few in-ga
 
 Causes audio to only be heard from the spawn position, with simulated doppler effect for fly-bys and allows for emulating multiplayer drone sounds. This can be kinda scary loading into a popular OG Bando and you may wanna fly somewhere else and change your spawn with S. Only simulates the closest 8 drones to you, you can change how many drones you can hear in the settings.cfg.
 
+## zonemods
 
+This is the mod loader that my other mods rely on.
+
+The override.cfg tells the game to load the mod loader, which then loads the defined mods. By default, it loads every folder that has a zonemod.cfg file
+
+```
+; zonemods - loads mods for The Zone FPV. See zonemods/README.txt.
+; Delete this file and the zonemods folder to start the game without mods.
+[autoload]
+
+ZoneMods="*res://zonemods/zonemods.gd"
+
+[zonemods]
+
+; Mod folders to load, in order, e.g. mods="analog400mw,another_mod".
+; Empty = every folder next to thezone.exe that has a zonemod.cfg.
+mods=""
+```
