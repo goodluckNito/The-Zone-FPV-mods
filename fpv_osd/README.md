@@ -1,4 +1,4 @@
-fpv_osd 1.0
+fpv_osd 1.0.1
 =================
 
 A Betaflight-style OSD for The Zone FPV - link quality, flight timer, battery,
@@ -136,8 +136,8 @@ LINK QUALITY
   (rc_power), from the distance to where you stand and the walls in between.
   LQ stays at 100 while the picture breaks up; it drops, and RXLOSS comes
   up, only far out or deep behind buildings. rc_link="video" makes it follow
-  the game's video signal instead: 100 close in, about 50 at 85 m
-  and 0 at 120 m in the open.
+  the game's video signal instead: 100 while the picture is clean, falling
+  as it breaks up, and 0 when it is gone.
 
   As in Betaflight, RXLOSS shows while the arm switch is on (armed or trying
   to arm) and comes before every other warning, CRASH FLIP included; and a
