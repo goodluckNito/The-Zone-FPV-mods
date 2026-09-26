@@ -1,0 +1,41 @@
+fpv_osd - a Betaflight-style on-screen display for The Zone FPV
+Copyright (C) 2026 Nito
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option)
+any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License for more
+details.
+
+You should have received a copy of the GNU General Public License along with
+this program (GPL-3.0.txt in this folder). If not, see
+<https://www.gnu.org/licenses/>.
+
+
+WHY GPL
+  Parts of osd.gd are translations into GDScript of code from two GPL
+  firmware projects:
+
+  Betaflight (https://github.com/betaflight/betaflight), GPL-3.0-or-later,
+  copyright the Betaflight contributors:
+    the battery voltage filter and warning state machine (sensors/battery.c),
+    the warnings and their order (osd/osd_warnings.c), the stats screen
+    and distance formatting (osd/osd.c), the artificial horizon, horizon
+    sidebars, crosshair and stick overlay elements (osd/osd_elements.c).
+
+  BrainFPV's Betaflight fork (https://github.com/BrainFPV/betaflight),
+  GPL-3.0-or-later, copyright BrainFPV and the Betaflight and Tau Labs
+  contributors:
+    the graphical stick overlay, pitch ladder and altitude and speed scales
+    (src/main/brainfpv/osd_utils.c and brainfpv_osd.c), its crosshair
+    (osdBackgroundCrosshairs_BrainFPV in osd/osd_elements.c) and its two
+    small fonts (fonts/brainfpv_8x8.png, fonts/brainfpv_8x10.png).
+
+  The .mcm fonts in fonts/ are Betaflight's, unchanged - see fonts/FONTS.txt.
+
+  The source is the mod itself: every .gd, .gdshader and .cfg file here is
+  plain text.

@@ -1,0 +1,26 @@
+Fonts
+=====
+
+betaflight_default.mcm
+betaflight_large.mcm
+betaflight_bold.mcm
+  Betaflight's default, large and bold OSD fonts, from Betaflight
+  Configurator (https://github.com/betaflight/betaflight-configurator,
+  resources/osd/2/default.mcm, large.mcm and bold.mcm). Copyright the
+  Betaflight contributors, licensed under the GNU General Public License
+  version 3 - see GPL-3.0.txt in the fpv_osd folder. Included unchanged; each .mcm file is its own
+  source. BrainFPV's firmware carries the same three.
+
+brainfpv_8x8.png
+brainfpv_8x10.png
+  BrainFPV's two small fonts - the outlined 8x8 one its pitch ladder and
+  scales are numbered in, and the 8x10 one in a scale's value box - from its
+  Betaflight fork (https://github.com/BrainFPV/betaflight,
+  src/main/brainfpv/fonts_stm32h7xx.c, data_font_outlined8x8 and
+  data_font8x10), drawn out as 16 x 16 grids of characters by character
+  code: clear, black, grey or white. Copyright the BrainFPV and Betaflight
+  contributors, licensed under the GNU General Public License version 3 - see
+  GPL-3.0.txt in the fpv_osd folder.
+
+Any Betaflight .mcm font works: put it in this folder and set font= in
+settings.cfg to its file name.
