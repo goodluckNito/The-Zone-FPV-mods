@@ -21,7 +21,7 @@ The default method to equip a fresh battery is to DISARM and RESET. This will al
 
 ## fpv_osd
 
-OSD simulation, with features from Betaflight and BrainFPV. Replaces a few in-game UI elements and integrates them into OSD, like ARMED message, Turtle Mode/Crash flip, and gets rid of "press r to reset" message on ground touch. Custom crosshair support, horizon lines, custom layouts and font support, and more. Compatible with battery_sag mod to show battery life.
+OSD simulation, with features from Betaflight, BrainFPV, Quicksilver, and iNav. Replaces a few in-game UI elements and integrates them into OSD, like ARMED message, Turtle Mode/Crash flip, and gets rid of "press r to reset" message on ground touch. Custom crosshair support, horizon lines, custom layouts and font support, and more. Compatible with battery_sag mod to show battery life.
 
 ## pilot_audio
 
