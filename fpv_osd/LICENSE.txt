@@ -17,7 +17,7 @@ this program (GPL-3.0.txt in this folder). If not, see
 
 
 WHY GPL
-  Parts of osd.gd are translations into GDScript of code from two GPL
+  Parts of osd.gd are translations into GDScript of code from three GPL
   firmware projects:
 
   Betaflight (https://github.com/betaflight/betaflight), GPL-3.0-or-later,
@@ -25,7 +25,8 @@ WHY GPL
     the battery voltage filter and warning state machine (sensors/battery.c),
     the warnings and their order (osd/osd_warnings.c), the stats screen
     and distance formatting (osd/osd.c), the artificial horizon, horizon
-    sidebars, crosshair and stick overlay elements (osd/osd_elements.c).
+    sidebars, crosshair, stick overlay, compass bar, home arrow, flip arrow
+    and up/down reference elements (osd/osd_elements.c).
 
   BrainFPV's Betaflight fork (https://github.com/BrainFPV/betaflight),
   GPL-3.0-or-later, copyright BrainFPV and the Betaflight and Tau Labs
@@ -35,7 +36,43 @@ WHY GPL
     (osdBackgroundCrosshairs_BrainFPV in osd/osd_elements.c) and its two
     small fonts (fonts/brainfpv_8x8.png, fonts/brainfpv_8x10.png).
 
-  The .mcm fonts in fonts/ are Betaflight's, unchanged - see fonts/FONTS.txt.
+  INAV (https://github.com/iNavFlight/inav), GPL-3.0-or-later (osd_grid.c
+  also MPL-2.0), copyright the INAV contributors:
+    the artificial horizon, sidebars and vario (io/osd_grid.c), the
+    throttle gauge (io/osd_common.c), the crosshairs and HUD - home point,
+    homing arrows, radar (io/osd_hud.c) - the g-force and vertical speed
+    (io/osd.c), and its number format (io/osd_utils.c).
+
+  The .mcm fonts in fonts/ are Betaflight's and INAV's, unchanged - see
+  fonts/FONTS.txt.
+
+  Also, from one MIT-licensed project, QUICKSILVER
+  (https://github.com/BossHobby/QUICKSILVER): its fuel gauge (vbat_calc and
+  vbat_auto_vdrop in src/io/vbat.c) and number format (osd_write_float in
+  src/driver/osd/osd.c). Its licence:
+
+    The MIT License (MIT)
+
+    Copyright (c) 2019 Benedikt Kleiner
+
+    Permission is hereby granted, free of charge, to any person obtaining a
+    copy of this software and associated documentation files (the
+    "Software"), to deal in the Software without restriction, including
+    without limitation the rights to use, copy, modify, merge, publish,
+    distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to
+    the following conditions:
+
+    The above copyright notice and this permission notice shall be included
+    in all copies or substantial portions of the Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+    OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
   The source is the mod itself: every .gd, .gdshader and .cfg file here is
   plain text.

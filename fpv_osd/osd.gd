@@ -23,8 +23,15 @@ extends Node
 ## the same state machine, and the stats screen has Betaflight's lines,
 ## labels, layout and ways of clearing it.
 ##
+## Each part - horizon, sidebars, crosshair, sticks - can be drawn as
+## Betaflight, BrainFPV or INAV draws it, mixed as the player likes. INAV's
+## parts (its horizon, scrolling sidebars, crosshairs, HUD, vario and the
+## rest) use INAV's own font, as its characters are its own. QUICKSILVER's
+## fuel gauge can go with any of them.
+##
 ## Copyright (C) 2026 Nito. GPL-3.0-or-later: see LICENSE.txt. Parts are
-## translated from Betaflight and BrainFPV's Betaflight fork (both GPL-3.0).
+## translated from Betaflight, BrainFPV's Betaflight fork and INAV (all
+## GPL-3.0) and QUICKSILVER (MIT).
 
 const COLS := 30
 const ROWS := 13            # the MAX7456's NTSC grid
@@ -50,10 +57,85 @@ const SYM_BATT_EMPTY := 0x96
 const SYM_AMP := 0x9A
 const SYM_FLY_M := 0x9C
 const SYM_KPH := 0x9E
+const SYM_OVER_HOME := 0x05
+const SYM_HOMEFLAG := 0x11
+const SYM_HEADING_N := 0x18
+const SYM_HEADING_S := 0x19
+const SYM_HEADING_E := 0x1A
+const SYM_HEADING_W := 0x1B
+const SYM_HEADING_DIVIDED_LINE := 0x1C
+const SYM_HEADING_LINE := 0x1D
+const SYM_ARROW_SOUTH := 0x60        # 16 arrows, turning clockwise from south
+const SYM_ARROW_EAST := 0x64
+const SYM_ARROW_NORTH := 0x68
+const SYM_ARROW_WEST := 0x6C
+const SYM_SPEED := 0x70              # a little gauge; QUICKSILVER's ICON_GAUGE
+# Betaflight's compass bar (osd_elements.c compassBar): nine characters of it,
+# starting at the heading's sixteenth of a turn
+const COMPASS_BAR := [SYM_HEADING_W,
+	SYM_HEADING_LINE, SYM_HEADING_DIVIDED_LINE, SYM_HEADING_LINE, SYM_HEADING_N,
+	SYM_HEADING_LINE, SYM_HEADING_DIVIDED_LINE, SYM_HEADING_LINE, SYM_HEADING_E,
+	SYM_HEADING_LINE, SYM_HEADING_DIVIDED_LINE, SYM_HEADING_LINE, SYM_HEADING_S,
+	SYM_HEADING_LINE, SYM_HEADING_DIVIDED_LINE, SYM_HEADING_LINE, SYM_HEADING_W,
+	SYM_HEADING_LINE, SYM_HEADING_DIVIDED_LINE, SYM_HEADING_LINE, SYM_HEADING_N,
+	SYM_HEADING_LINE, SYM_HEADING_DIVIDED_LINE, SYM_HEADING_LINE]
+const COMPASS_COL := 10              # its left end; the heading is col 14
+
+# INAV's character codes (drivers/osd_symbols.h) - an INAV font has 512
+const I_HOME := 0x10
+const I_AH_DECORATION_UP := 0x15
+const I_AH_DECORATION_DOWN := 0x16
+const I_DECORATION := 0x17           # 8 little arrows, clockwise from up
+const I_ZERO_HALF_TRAILING_DOT := 0xA1
+const I_ZERO_HALF_LEADING_DOT := 0xB1
+const I_AH_LEFT := 0x12C
+const I_AH_RIGHT := 0x12D
+const I_AH_DECORATION_MIN := 0x12E
+const I_AH_DECORATION := 0x131
+const I_AH_DECORATION_MAX := 0x133
+const I_AH_DECORATION_COUNT := 6
+const I_AH_CH_LEFT := 0x13A
+const I_AH_CH_RIGHT := 0x13B
+const I_AH_H_START := 0x14C          # 9 heights of a level line
+const I_AH_V_START := 0x15A          # 6 positions of an upright one
+const I_HUD_SIGNAL_0 := 0x160
+const I_AH_CH_CENTER := 0x166
+const I_AH_CH_TYPE3 := 0x190         # then 4..8, three characters each
+const I_AH_CH_AIRCRAFT0 := 0x1A2     # five characters
+const I_HUD_ARROWS_L1 := 0x1AE
+const I_HUD_ARROWS_L3 := 0x1B0
+const I_HUD_ARROWS_R1 := 0x1B1
+const I_HUD_ARROWS_R3 := 0x1B3
+const I_HUD_ARROWS_U1 := 0x1B4
+const I_HUD_ARROWS_D1 := 0x1B7
+const I_HUD_CARDINAL := 0x1BA        # 12, where it is, in 30 degree steps
+const I_MS := 0x8F
+const I_GFORCE := 0xBC
+const I_VARIO_UP_2A := 0x155
+const I_VARIO_UP_1A := 0x156
+const I_VARIO_DOWN_1A := 0x157
+const I_VARIO_DOWN_2A := 0x158
+const I_THR_GAUGE_EMPTY := 0x16B
+const I_THR_GAUGE_HALF := 0x16C
+const I_THR_GAUGE_FULL := 0x16D
+# its artificial horizon: 11 x 9 characters round the crosshair
+const I_AHI_WIDTH := 11
+const I_AHI_HEIGHT := 9
+const I_AHI_H_SYM_COUNT := 9
+const I_AHI_V_SYM_COUNT := 6
+const I_AH_SIDEBAR_WIDTH := 7
+const I_ASPECT := 12.0 / 18.46       # NTSC characters are taller than wide
+# the middle of INAV's grid: column 15, row 6 of 30 x 13
+const I_MID_COL := 15
+const I_MID_ROW := 6
+const I_HOMING_H := [6, 16, 38]      # OSD_HOMING_LIM_H1..3, degrees
+const I_HOMING_V := [5, 10, 15]      # OSD_HOMING_LIM_V1..3
+const HUD_RADAR_MAX := 4
 
 const DEFAULTS := {
 	"style": "betaflight",
 	"font": "betaflight_default.mcm",
+	"inav_font": "inav_default.mcm",
 	"craft_name": "",
 	"battery_mah": 450,
 	"battery_cells": 1,
@@ -77,7 +159,7 @@ const DEFAULTS := {
 	"show_speed": false,
 	"show_altitude": false,
 	"show_sticks": false,
-	"sticks_style": "brainfpv",
+	"sticks_style": "brainfpv",       # or "auto", "betaflight"
 	"sticks_mode": 2,
 	"sticks_size": 1.0,
 	"sticks_x": 9.0,
@@ -89,7 +171,28 @@ const DEFAULTS := {
 	"crosshair_size": 1.0,
 	"crosshair_offset": 0.0,
 	"show_horizon": false,
+	"horizon_style": "auto",
+	"horizon_pitch_interval": 0,
 	"show_horizon_sidebars": false,
+	"sidebars_style": "auto",
+	"sidebars_scroll_left": "none",
+	"sidebars_scroll_right": "none",
+	"sidebars_arrows": false,
+	"sidebars_height": 3,
+	"show_compass": false,
+	"show_home": false,
+	"hud_homepoint": false,
+	"hud_homing": false,
+	"hud_radar": 0,
+	"hud_radar_range_min": 3,
+	"hud_radar_range_max": 4000,
+	"hud_margin_h": 3,
+	"hud_margin_v": 3,
+	"show_vario": false,
+	"show_vario_number": false,
+	"show_g_force": false,
+	"g_force_alarm": 5.0,
+	"show_throttle_gauge": false,
 	"horizon_max_pitch": 20,
 	"horizon_max_roll": 40,
 	"horizon_invert": false,
@@ -98,6 +201,10 @@ const DEFAULTS := {
 	"show_altitude_scale": false,
 	"show_speed_scale": false,
 	"show_warnings": true,
+	"show_fuel_gauge": false,
+	"warnings_use_fuel_gauge": false,
+	"show_flip_arrow": false,
+	"show_up_down": false,
 	"show_in_digital": true,
 	"rc_link": "elrs",
 	"rc_power": 100,
@@ -141,8 +248,16 @@ const TOTALS_KEYS := ["stat_total_flights", "stat_total_time", "stat_total_dista
 
 # Crosshairs: Betaflight's (from the font, so a custom font's own shows), or
 # one drawn in the OSD's white-with-black-edge style, at the picture's centre
-const CROSSHAIRS := ["off", "betaflight", "brainfpv", "plus", "gap", "cross", "dot", "circle", "chevron"]
+const CROSSHAIRS := ["off", "auto", "betaflight", "brainfpv", "inav", "inav_aircraft", "inav_type3",
+	"inav_type4", "inav_type5", "inav_type6", "inav_type7", "inav_type8",
+	"plus", "gap", "cross", "dot", "circle", "chevron"]
+# style: the text, how often it is redrawn, and what "auto" means below
 const STYLES := ["betaflight", "brainfpv"]
+# each part's own choices
+const HORIZON_STYLES := ["auto", "betaflight", "brainfpv", "inav"]
+const SIDEBAR_STYLES := ["auto", "betaflight", "inav"]
+const STICK_STYLES := ["auto", "betaflight", "brainfpv"]
+const SIDEBAR_SCROLLS := ["none", "altitude", "speed", "home_distance"]
 const CX := COLS * GW / 2            # the picture's centre, in OSD pixels
 const CY := ROWS * GH / 2
 const AH_ROW := 2                    # Betaflight's horizon: 9 characters wide, rows 2-11
@@ -228,10 +343,18 @@ var _tex: ImageTexture = null
 var _cells := PackedByteArray()
 var extras: Array = []              # drawn over the grid last time, for tests: [what, code, x, y]
 var _over: Array = []               # [code, x, y] font glyphs to draw at pixel positions
+var _over_late: Array = []          # the same, drawn over the crosshair
 var _xhair: Image = null
 var _xhair_style := "off"
 var _style := "betaflight"
 var _sticks_style := "brainfpv"
+var _hz_style := "betaflight"
+var _sb_style := "betaflight"
+var _inav: Image = null          # INAV's font, for its parts
+var _ibusy := {}                 # INAV grid cells drawn this time
+var _sb_state := [{}, {}]        # INAV's scrolling sidebars, left and right
+var _radar_slot := {}            # other players' quads: their letter, A-D
+var _abusy := {}                 # INAV's own-place elements, by cell
 var _small8: Image = null      # BrainFPV's small fonts: outlined 8x8 and 8x10
 var _font810: Image = null
 var _win_h := 1080.0
@@ -290,6 +413,30 @@ var _vf_ready := false
 var _vstate := BAT_OK
 var _cstate := BAT_OK
 var _t_vchange := 0.0
+var _fresh_pack := false
+
+# QUICKSILVER's fuel gauge (io/vbat.c): the pack's voltage with the sag from
+# throttle added back, stepped at its 1 kHz
+const QS_DT := 0.001
+const QS_CF1 := 0.25                  # its li-ion recovery term
+const QS_SAG_A := 0.0304590           # pt1 5 Hz at 1 kHz (sag_filter)
+const QS_THR_A := 0.2737757           # pt1 60 Hz at 1 kHz (thrsum_filter)
+const QS_DECAY_K := 0.9996667         # lpfcalc(0.001, 18): the 18 s decay
+const QS_HP_K := 0.9880716            # lpfcalc(12 ms, 6 s): vbat_auto_vdrop's high-pass
+const QS_SCORE_K := 0.9988007         # lpfcalc(12 ms, 60 s): its score filter
+var fuel_gauge := 0.0                 # volts a cell (vbat_compensated_cell_avg)
+var fuel_vdrop := 0.0                 # the sag at full throttle it has learnt
+var _fg_warn := 0.0                   # the gauge smoothed as Betaflight smooths its voltage
+var _qs_ready := false
+var _qs_acc := 0.0
+var _qs_sag := 0.0
+var _qs_decay := 0.0
+var _qs_thr := 0.0
+var _qs_z := 0
+var _qs_min := 0
+var _qs_lastin := PackedFloat64Array()
+var _qs_lastout := PackedFloat64Array()
+var _qs_score := PackedFloat64Array()
 
 # the flight's numbers, and the stats screen
 var _st := {}
@@ -333,29 +480,42 @@ func setup(dir: String, core: Node) -> String:
 	_cells.resize(COLS * ROWS)
 	var xnote := ""
 	_rc_elrs = str(cfg["rc_link"]).strip_edges().to_lower() != "video"
-	_style = str(cfg["style"]).strip_edges().to_lower()
-	if not _style in STYLES:
-		xnote += " - no style called \"%s\", so betaflight" % _style
-		_style = "betaflight"
-	_sticks_style = str(cfg["sticks_style"]).strip_edges().to_lower()
-	if not _sticks_style in STYLES:
-		xnote += " - no stick overlay called \"%s\", so brainfpv" % _sticks_style
-		_sticks_style = "brainfpv"
+	_style = _choice("style", STYLES, "betaflight")
+	# each part's own style; "auto" is style's own version of it (BrainFPV's
+	# sidebars are Betaflight's)
+	_hz_style = _choice("horizon_style", HORIZON_STYLES, "auto")
+	if _hz_style == "auto":
+		_hz_style = _style
+	_sticks_style = _choice("sticks_style", STICK_STYLES, "brainfpv")
+	if _sticks_style == "auto":
+		_sticks_style = _style
+	_sb_style = _choice("sidebars_style", SIDEBAR_STYLES, "auto")
+	if _sb_style == "auto":
+		_sb_style = "betaflight"
 	_xhair_style = str(cfg["crosshair"]).strip_edges().to_lower()
 	if _xhair_style == "off" and bool(cfg["show_crosshair"]):
 		_xhair_style = "betaflight"
 	if not _xhair_style in CROSSHAIRS:
 		xnote += " - no crosshair called \"%s\"; one of %s" % [_xhair_style, ", ".join(CROSSHAIRS)]
 		_xhair_style = "off"
-	# BrainFPV draws its own crosshair in place of Betaflight's
-	if _style == "brainfpv" and _xhair_style == "betaflight":
-		_xhair_style = "brainfpv"
-	if _style == "brainfpv" or (bool(cfg["show_sticks"]) and _sticks_style == "brainfpv"):
+	if _xhair_style == "auto":
+		_xhair_style = _style
+	for k in ["sidebars_scroll_left", "sidebars_scroll_right"]:
+		_choice(k, SIDEBAR_SCROLLS, "none")
+	xnote += _bad
+	if _brainfpv_drawn() or (bool(cfg["show_sticks"]) and _sticks_style == "brainfpv"):
 		_small8 = load_font_png(dir + "fonts/brainfpv_8x8.png", 8, 8)
 		_font810 = load_font_png(dir + "fonts/brainfpv_8x10.png", 8, 10)
-		if _style == "brainfpv" and (_small8 == null or _font810 == null):
+		if _brainfpv_drawn() and (_small8 == null or _font810 == null):
 			xnote += " - fonts/brainfpv_8x8.png or brainfpv_8x10.png missing, so no numbers on the horizon and scales"
-	_xhair = make_crosshair(_xhair_style, float(cfg["crosshair_size"]), _font)
+	var inav_note := ""
+	if _uses_inav():
+		var inav_name := str(cfg["inav_font"])
+		_inav = load_mcm(dir + "fonts/" + inav_name)
+		if _inav == null or _inav.get_height() < 32 * GH:
+			_inav = null
+			inav_note = " - fonts/%s is not a 512-character INAV font, so INAV's parts are off" % inav_name
+	_xhair = make_crosshair(_xhair_style, float(cfg["crosshair_size"]), _font, _inav)
 	for k in STAT_ORDER:
 		if bool(cfg[k]):
 			_stat_keys.append(k)
@@ -369,31 +529,88 @@ func setup(dir: String, core: Node) -> String:
 			xh += ", %+g%% of the picture up" % float(cfg["crosshair_offset"])
 	var hz := []
 	var on_cam := " on the real horizon (camera uptilt allowed for)" if bool(cfg["horizon_uptilt"]) else ""
-	if bool(cfg["show_horizon"]) and _style == "brainfpv":
+	if bool(cfg["show_horizon"]) and _hz_style == "brainfpv":
 		hz.append("BrainFPV's pitch ladder (+-%d degrees)%s" % [clampi(int(cfg["horizon_steps"]), 0, 9) * BFPV_PITCH_STEP, on_cam])
+	elif bool(cfg["show_horizon"]) and _hz_style == "inav":
+		var pi := clampi(int(cfg["horizon_pitch_interval"]), 0, 30)
+		hz.append("INAV's artificial horizon (%d degrees pitch full scale%s%s%s)" % [int(cfg["horizon_max_pitch"]),
+			", a line every %d degrees" % pi if pi > 0 else "", ", roll reversed" if bool(cfg["horizon_invert"]) else "",
+			", less the camera's uptilt" if bool(cfg["horizon_uptilt"]) else ""])
 	elif bool(cfg["show_horizon"]) and bool(cfg["horizon_uptilt"]):
 		hz.append("artificial horizon" + on_cam)
 	elif bool(cfg["show_horizon"]):
 		hz.append("artificial horizon (%d degrees pitch, %d roll full scale%s)" % [int(cfg["horizon_max_pitch"]), int(cfg["horizon_max_roll"]), ", inverted" if bool(cfg["horizon_invert"]) else ""])
-	if bool(cfg["show_horizon_sidebars"]):
+	if bool(cfg["show_horizon_sidebars"]) and _sb_style == "inav":
+		var sc := [str(cfg["sidebars_scroll_left"]), str(cfg["sidebars_scroll_right"])]
+		hz.append("INAV's sidebars (scrolling with %s and %s%s)" % [sc[0], sc[1], ", arrows" if bool(cfg["sidebars_arrows"]) else ""])
+	elif bool(cfg["show_horizon_sidebars"]):
 		hz.append("sidebars")
-	xh += xnote + "; horizon: " + (" and ".join(hz) if not hz.is_empty() else "off")
-	if _style == "brainfpv":
-		var sc := []
-		if bool(cfg["show_altitude_scale"]):
-			sc.append("altitude")
-		if bool(cfg["show_speed_scale"]):
-			sc.append("speed")
-		xh += "; scales: " + (" and ".join(sc) if not sc.is_empty() else "off")
+	xh += xnote + inav_note + "; horizon: " + (" and ".join(hz) if not hz.is_empty() else "off")
+	var sc2 := []
+	if bool(cfg["show_altitude_scale"]):
+		sc2.append("altitude")
+	if bool(cfg["show_speed_scale"]):
+		sc2.append("speed")
+	xh += "; scales: " + (" and ".join(sc2) if not sc2.is_empty() else "off")
 	if not bool(cfg["show_sticks"]):
 		xh += "; sticks: off"
 	elif _sticks_style == "brainfpv":
 		xh += "; sticks: brainfpv, mode %d, size %s, at %s%% in and %s%% up" % [clampi(int(cfg["sticks_mode"]), 1, 4), str(snappedf(float(cfg["sticks_size"]), 0.01)), str(snappedf(float(cfg["sticks_x"]), 0.1)), str(snappedf(float(cfg["sticks_y"]), 0.1))]
 	else:
 		xh += "; sticks: betaflight, mode %d, rows %d-%d" % [clampi(int(cfg["sticks_mode"]), 1, 4), int(cfg["sticks_row"]), int(cfg["sticks_row"]) + STICK_H - 1]
+	xh += "; compass: %s" % ("on" if bool(cfg["show_compass"]) else "off")
+	xh += "; home: %s" % ("arrow and distance" if bool(cfg["show_home"]) else "off")
+	var hud := []
+	if bool(cfg["hud_homepoint"]):
+		hud.append("home point")
+	if bool(cfg["hud_homing"]):
+		hud.append("homing arrows")
+	if _radar_n() > 0:
+		hud.append("radar, %d nearest other players %d-%d m out" % [_radar_n(), int(cfg["hud_radar_range_min"]), int(cfg["hud_radar_range_max"])])
+	xh += "; hud: " + (", ".join(hud) if not hud.is_empty() else "off")
+	var more := []
+	for k in ["vario", "vario_number", "g_force", "throttle_gauge"]:
+		if bool(cfg["show_" + k]):
+			more.append(k.replace("_", " "))
+	xh += "; inav: " + (", ".join(more) if not more.is_empty() else "off")
+	xh += "; fuel gauge: %s" % ("on" if bool(cfg["show_fuel_gauge"]) else "off")
+	xh += "; flip arrow: %s" % ("on" if bool(cfg["show_flip_arrow"]) else "off")
+	xh += "; up/down: %s" % (("on, by the camera" if bool(cfg["horizon_uptilt"]) else "on") if bool(cfg["show_up_down"]) else "off")
 	xh += "; redrawn %d times a second" % _rate()
 	var rc := ("link: its own control link, ExpressLRS 2.4 GHz at %d mW" % _rc_power()) if _rc_elrs else "link: follows the video signal"
 	return "\n".join(["osd: font %s%s" % [font_name, note], xh, rc, _describe_warnings(), _describe_stats()])
+
+
+var _bad := ""
+
+
+# A setting that has to be one of a list; a note in status.txt when it is not
+func _choice(key: String, allowed: Array, fallback: String) -> String:
+	var v := str(cfg[key]).strip_edges().to_lower()
+	if v in allowed:
+		return v
+	var msg := " - no %s \"%s\", so %s" % [key, v, fallback]
+	if not _bad.contains(msg):
+		_bad += msg
+	return fallback
+
+
+# BrainFPV's drawn parts, redrawn 30 times a second as its OSD is
+func _brainfpv_drawn() -> bool:
+	return _style == "brainfpv" or (bool(cfg["show_horizon"]) and _hz_style == "brainfpv") \
+		or bool(cfg["show_altitude_scale"]) or bool(cfg["show_speed_scale"])
+
+
+func _uses_inav() -> bool:
+	return (bool(cfg["show_horizon"]) and _hz_style == "inav") \
+		or (bool(cfg["show_horizon_sidebars"]) and _sb_style == "inav") \
+		or _xhair_style.begins_with("inav") or bool(cfg["hud_homepoint"]) or bool(cfg["hud_homing"]) \
+		or _radar_n() > 0 or bool(cfg["show_vario"]) or bool(cfg["show_vario_number"]) \
+		or bool(cfg["show_g_force"]) or bool(cfg["show_throttle_gauge"])
+
+
+func _radar_n() -> int:
+	return clampi(int(cfg["hud_radar"]), 0, HUD_RADAR_MAX)
 
 
 func _describe_warnings() -> String:
@@ -402,8 +619,9 @@ func _describe_warnings() -> String:
 	var ln := _volts("land_now_voltage")
 	var lo_d := float(cfg["low_battery_delay"])
 	var ln_d := float(cfg["land_now_delay"])
-	parts.append(("LOW BATTERY below %.2f V a cell" % lo + (" for %.1f s" % lo_d if lo_d > 0.0 else "")) if lo > 0.0 else "LOW BATTERY by voltage off")
-	parts.append(("LAND NOW below %.2f V" % ln + (" for %.1f s" % ln_d if ln_d > 0.0 else "")) if ln > 0.0 else "LAND NOW by voltage off")
+	var on := " on the fuel gauge" if bool(cfg["warnings_use_fuel_gauge"]) else ""
+	parts.append(("LOW BATTERY below %.2f V a cell" % lo + on + (" for %.1f s" % lo_d if lo_d > 0.0 else "")) if lo > 0.0 else "LOW BATTERY by voltage off")
+	parts.append(("LAND NOW below %.2f V" % ln + on + (" for %.1f s" % ln_d if ln_d > 0.0 else "")) if ln > 0.0 else "LAND NOW by voltage off")
 	if int(cfg["low_battery_percent"]) > 0:
 		parts.append("LOW BATTERY at %d%% left" % int(cfg["low_battery_percent"]))
 	if int(cfg["over_cap_mah"]) > 0:
@@ -427,12 +645,29 @@ func _describe_stats() -> String:
 
 
 ## A crosshair to lay over the OSD, centred on its middle: Betaflight's three
-## characters from the font, or a shape drawn white with a black edge like the
-## font's characters. size scales it. null for "off".
-static func make_crosshair(style: String, size: float, font: Image) -> Image:
+## characters from the font, INAV's three (or five) from its font, or a shape
+## drawn white with a black edge like the font's characters. size scales it.
+## null for "off".
+static func make_crosshair(style: String, size: float, font: Image, inav: Image = null) -> Image:
 	var sz := clampf(size, 0.25, 4.0)
 	if style == "off" or font == null:
 		return null
+	if style.begins_with("inav"):
+		# osdHudDrawCrosshair: the middle character on the crosshair
+		if inav == null:
+			return null
+		var codes := [I_AH_CH_LEFT, I_AH_CH_CENTER, I_AH_CH_RIGHT]
+		if style == "inav_aircraft":
+			codes = [I_AH_CH_AIRCRAFT0, I_AH_CH_AIRCRAFT0 + 1, I_AH_CH_AIRCRAFT0 + 2, I_AH_CH_AIRCRAFT0 + 3, I_AH_CH_AIRCRAFT0 + 4]
+		elif style.begins_with("inav_type"):
+			var base := I_AH_CH_TYPE3 + (int(style.trim_prefix("inav_type")) - 3) * 3
+			codes = [base, base + 1, base + 2]
+		var ic := Image.create_empty(codes.size() * GW, GH, false, Image.FORMAT_RGBA8)
+		for i in codes.size():
+			ic.blit_rect(inav, Rect2i((codes[i] % 16) * GW, (codes[i] / 16) * GH, GW, GH), Vector2i(i * GW, 0))
+		if sz != 1.0:
+			ic.resize(maxi(roundi(codes.size() * GW * sz), 1), maxi(roundi(GH * sz), 1), Image.INTERPOLATE_NEAREST)
+		return ic
 	if style == "brainfpv":
 		# osdBackgroundCrosshairs_BrainFPV: two wings and a fin, white lines
 		# outlined black, the middle at (12, 9)
@@ -518,8 +753,9 @@ static func load_font_png(path: String, w: int, h: int) -> Image:
 	return img
 
 
-## A Betaflight / MAX7456 .mcm font as a 16x16 grid of 12x18 characters:
-## white where the font is white, black where it is black, clear elsewhere.
+## A Betaflight / MAX7456 .mcm font as a grid of 12x18 characters, 16 across
+## and 16 down (256, as Betaflight's) or 32 down (512, as INAV's): white where
+## the font is white, black where it is black, clear elsewhere.
 static func load_mcm(path: String) -> Image:
 	var f := FileAccess.open(path, FileAccess.READ)
 	if f == null:
@@ -531,10 +767,11 @@ static func load_mcm(path: String) -> Image:
 			rows.append(s)
 	if rows.size() < 1 + 256 * 64 or rows[0] != "MAX7456":
 		return null
-	var img := Image.create_empty(16 * GW, 16 * GH, false, Image.FORMAT_RGBA8)
+	var count := 512 if rows.size() >= 1 + 512 * 64 else 256
+	var img := Image.create_empty(16 * GW, count / 16 * GH, false, Image.FORMAT_RGBA8)
 	var white := Color(1, 1, 1, 1)
 	var black := Color(0, 0, 0, 1)
-	for g in 256:
+	for g in count:
 		var ox := (g % 16) * GW
 		var oy := (g / 16) * GH
 		for p in GW * GH:
@@ -585,9 +822,9 @@ func _input(event: InputEvent) -> void:
 
 
 # How often the OSD is redrawn: about 15 times a second as a Betaflight OSD
-# chip is, or 30 - every other video field - with BrainFPV's.
+# chip is, or 30 - every other video field - with any of BrainFPV's parts.
 func _rate() -> int:
-	if _style == "brainfpv" or (bool(cfg["show_sticks"]) and _sticks_style == "brainfpv"):
+	if _brainfpv_drawn() or (bool(cfg["show_sticks"]) and _sticks_style == "brainfpv"):
 		return 30
 	return 15
 
@@ -778,6 +1015,8 @@ func _track(delta: float) -> void:
 	var thr := _throttle()
 	_battery(delta, thr, armed)
 	_battery_filter(delta)
+	if bool(cfg["show_fuel_gauge"]) or bool(cfg["warnings_use_fuel_gauge"]):
+		_fuel_gauge(delta, thr if armed else 0.0)
 	_battery_warnings()
 	if armed and not respawned:
 		_stats_update(delta, thr, pos)
@@ -885,6 +1124,7 @@ func battery_provider() -> Dictionary:
 # as plugging one in does.
 func _battery_filter(dt: float) -> void:
 	var fresh := not _vf_ready or _mah < _mah_prev - 0.5 or _shown_cells != _cells_prev
+	_fresh_pack = fresh
 	if fresh:
 		_vf = _v
 		_vf_ready = true
@@ -900,6 +1140,75 @@ func _battery_filter(dt: float) -> void:
 	_cells_prev = _shown_cells
 
 
+# QUICKSILVER's fuel gauge (vbat_calc and vbat_auto_vdrop), a step every
+# millisecond as its 1 kHz task. The pack voltage is filtered at 5 Hz, a
+# little of the slow li-ion recovery is added (CF1), and the sag is put back
+# as a factor times the throttle - the motors' average output, which is the
+# throttle here. The factor is learnt in flight: twelve candidates, 0 to
+# 1.1 V at full throttle, each high-passed so the pack draining drops out,
+# and the one that leaves the least wobble wins, plus 0.1 V as QUICKSILVER
+# adds. It learns only above 10% throttle. A fresh pack starts it over, as
+# plugging one in restarts the flight controller.
+func _fuel_gauge(dt: float, thr: float) -> void:
+	var cells := float(maxi(_shown_cells, 1))
+	var vpack := _v * cells
+	if not _qs_ready or _fresh_pack:
+		_qs_ready = true
+		_qs_acc = 0.0
+		_qs_sag = vpack
+		_qs_decay = vpack
+		_qs_thr = 0.0
+		_qs_z = 0
+		_qs_min = 0
+		_qs_lastin.resize(12)
+		_qs_lastout.resize(12)
+		_qs_score.resize(12)
+		_qs_lastin.fill(0.0)
+		_qs_lastout.fill(0.0)
+		_qs_score.fill(0.0)
+		fuel_gauge = _v
+		_fg_warn = _v
+	_qs_acc += dt
+	var steps := 0
+	var comp := fuel_gauge * cells
+	while _qs_acc >= QS_DT and steps < 250:
+		_qs_acc -= QS_DT
+		steps += 1
+		_qs_sag += QS_SAG_A * (vpack - _qs_sag)
+		_qs_decay = _qs_decay * QS_DECAY_K + _qs_sag * (1.0 - QS_DECAY_K)
+		_qs_thr += QS_THR_A * (thr - _qs_thr)
+		var temp := _qs_sag * (1.0 + QS_CF1) - _qs_decay * QS_CF1
+		comp = temp + _qs_vdrop(_qs_thr, temp) * _qs_thr
+	if steps >= 250:
+		_qs_acc = 0.0
+	fuel_gauge = comp / cells
+	fuel_vdrop = _qs_min * 0.1
+	# for warnings_use_fuel_gauge: Betaflight's warnings expect its smoothed
+	# voltage, and the gauge jumps for a moment when the motors spin up or down
+	_fg_warn += (fuel_gauge - _fg_warn) * (1.0 - exp(-dt / VBAT_TAU))
+
+
+func _qs_vdrop(thrfilt: float, tempvolt: float) -> float:
+	if thrfilt <= 0.1:
+		return _qs_min * 0.1
+	var z := _qs_z
+	var vcomp := tempvolt + float(z) * 0.1 * thrfilt
+	var ans := vcomp - _qs_lastin[z] + QS_HP_K * _qs_lastout[z]
+	_qs_lastin[z] = vcomp
+	_qs_lastout[z] = ans
+	_qs_score[z] = _qs_score[z] * QS_SCORE_K + ans * ans * (1.0 - QS_SCORE_K)
+	_qs_z += 1
+	if _qs_z >= 12:
+		_qs_z = 0
+		# as QUICKSILVER: when the first is the lowest the choice stays as it was
+		var mn := _qs_score[0]
+		for i in 12:
+			if _qs_score[i] < mn:
+				mn = _qs_score[i]
+				_qs_min = i + 1
+	return _qs_min * 0.1
+
+
 # Volts a cell from settings.cfg; Betaflight writes 3.50 V as 350.
 func _volts(key: String) -> float:
 	var v := float(cfg[key])
@@ -911,7 +1220,7 @@ func _volts(key: String) -> float:
 # (LAND NOW), by the smoothed voltage and optionally by the mAh left.
 func _battery_warnings() -> void:
 	var n := float(_shown_cells)
-	var vp := _vf * n
+	var vp := (_fg_warn if bool(cfg["warnings_use_fuel_gauge"]) and _qs_ready else _vf) * n
 	var lo := _volts("low_battery_voltage")
 	var ln := _volts("land_now_voltage")
 	# with LOW BATTERY off, LAND NOW still goes through the warning state
@@ -1284,6 +1593,9 @@ func _center(row: int, s: String) -> void:
 func _compose() -> void:
 	_cells.fill(0x20)
 	_over.clear()
+	_over_late.clear()
+	_ibusy.clear()
+	_abusy.clear()
 	if stats_visible:
 		_compose_stats()
 		_draw_cells(false)
@@ -1309,10 +1621,22 @@ func _compose() -> void:
 		_sym(22, 1, SYM_ALTITUDE)
 		_text(23, 1, "%5.1f" % clampf(alt, -99.9, 999.9))
 		_sym(28, 1, SYM_M)
+	if bool(cfg["show_compass"]):
+		_compass()
+	if bool(cfg["show_home"]):
+		_home_bf()
 	if bool(cfg["show_sticks"]) and _sticks_style == "betaflight":
 		_sticks()
 	if bool(cfg["show_horizon"]) or bool(cfg["show_horizon_sidebars"]):
 		_horizon()
+	if _inav != null:
+		_inav_elements(blink)
+	if _inav != null and (bool(cfg["hud_homepoint"]) or bool(cfg["hud_homing"]) or _radar_n() > 0):
+		_inav_hud()
+	if bool(cfg["show_up_down"]):
+		_up_down()
+	if bool(cfg["show_flip_arrow"]):
+		_flip_arrow()
 	warning = ""
 	if cfg["show_warnings"]:
 		# in Betaflight's order of priority
@@ -1352,6 +1676,11 @@ func _compose() -> void:
 	if cfg["show_throttle"]:
 		_sym(1, 11, SYM_THR)
 		_text(2, 11, "%3d" % int(round(_throttle() * 100.0)))
+	if bool(cfg["show_fuel_gauge"]) and _qs_ready:
+		# QUICKSILVER's OSD_FUELGAUGE_VOLTS: four wide, one decimal, then its gauge
+		var fv := fuel_gauge if str(cfg["battery_voltage"]) == "cell" else fuel_gauge * float(_shown_cells)
+		_text(6, 11, _qs_float(fv, 4, 1))
+		_sym(10, 11, SYM_SPEED)
 	# the voltage blinks while LOW BATTERY or LAND NOW is up, as Betaflight's does
 	if cfg["show_battery"] and (blink or bat_state == BAT_OK):
 		# the icon goes by volts per cell, like Betaflight's
@@ -1371,6 +1700,100 @@ func _compose() -> void:
 		_text(23, 11, "%5.1f" % clampf(_amps, 0.0, 999.9))
 		_sym(28, 11, SYM_AMP)
 	_draw_cells(true)
+
+
+# QUICKSILVER's osd_write_float: right-aligned in width, the decimals cut to
+# fit, and cut off rather than rounded
+static func _qs_float(val: float, width: int, precision: int) -> String:
+	var neg := val < 0.0
+	var digits := 1
+	var w := int(absf(val))
+	while w > 0:
+		w /= 10
+		digits += 1
+	if neg:
+		digits += 1
+	precision = 0 if digits > width else clampi(width - digits, 0, precision)
+	var v := int(absf(val) * pow(10.0, precision))
+	var out := ""
+	for i in precision:
+		out = str(v % 10) + out
+		v /= 10
+	if precision > 0:
+		out = "." + out
+	out = str(v) + out
+	if neg:
+		out = "-" + out
+	return out.lpad(width)
+
+
+# Betaflight's flip arrow (osdElementCrashFlipArrow): the way to flip the quad
+# back over, while crash-flip mode (the game's turtle mode) is on or while
+# disarmed and more than small_angle (25 degrees) off level. Above the
+# warnings, in the middle.
+func _flip_arrow() -> void:
+	if not (_player is Node3D) or not is_instance_valid(_player):
+		return
+	var att := _attitude()
+	var roll := att.x / 10
+	var pitch := att.y / 10
+	if absi(roll) > 90:
+		roll = (-180 if roll < 0 else 180) - roll
+	var upright := (_player as Node3D).global_transform.basis.orthonormalized().y.y > cos(deg_to_rad(25.0))
+	if not (_turtle() or (not _armed and not upright)) or upright or (roll == 0 and pitch == 0):
+		return
+	var sym: int
+	if absi(pitch) < 2 * absi(roll) and absi(roll) < 2 * absi(pitch):
+		if pitch > 0:
+			sym = SYM_ARROW_WEST + 2 if roll > 0 else SYM_ARROW_EAST - 2
+		else:
+			sym = SYM_ARROW_WEST - 2 if roll > 0 else SYM_ARROW_EAST + 2
+	elif absi(pitch) > absi(roll):
+		sym = SYM_ARROW_SOUTH if pitch > 0 else SYM_ARROW_NORTH
+	else:
+		sym = SYM_ARROW_WEST if roll > 0 else SYM_ARROW_EAST
+	_over.append([sym, CX - GW / 2, 8 * GH, "flip_arrow", _font])
+
+
+# Betaflight's up/down reference (osdElementUpDownReference): while the nose
+# points within about 25 degrees of straight up or straight down, a U or a D
+# where straight up or down is, from the crosshair - 14 columns or 8 rows for
+# 45 degrees, as Betaflight has it. It goes by the quad's own axes, as the
+# flight controller does; with horizon_uptilt, by the camera's.
+func _up_down() -> void:
+	if not (_player is Node3D) or not is_instance_valid(_player):
+		return
+	var b := (_player as Node3D).global_transform.basis.orthonormalized()
+	if bool(cfg["horizon_uptilt"]):
+		var cam := _camera()
+		if cam != null:
+			b = cam.global_transform.basis.orthonormalized()
+	# straight down in the quad's axes: forward, left and up
+	var fwd := b.z.y
+	var left := b.x.y
+	var up := -b.y.y
+	const SINE_25 := 0.42261826
+	if absf(up) >= SINE_25 or absf(left) >= SINE_25:
+		return
+	var theta: float
+	var psi: float
+	var sym: int
+	if fwd > 0.0:
+		# nose down: where straight down is
+		theta = -up
+		psi = -left
+		sym = 0x44
+	else:
+		theta = up
+		psi = left
+		sym = 0x55
+	var ox := roundi(psi / (PI / 4.0) * 14.0)
+	var oy := roundi(theta / (PI / 4.0) * 8.0)
+	var x := CX - GW / 2 + ox * GW
+	var y := _cross_y() - GH / 2 + oy * GH
+	if x < 0 or y < 0 or x > COLS * GW - GW or y > ROWS * GH - GH:
+		return
+	_over_late.append([sym, x, y, "up_down", _font])
 
 
 # The quad's attitude as Betaflight has it, in tenths of a degree: roll to the
@@ -1417,13 +1840,19 @@ func _stick_box(col: int, row: int, vertical: float, horizontal: float) -> void:
 # places, centred on the picture's middle like the crosshair.
 func _horizon() -> void:
 	var x0 := CX - GW / 2               # the middle column's left edge
-	if bool(cfg["show_horizon_sidebars"]):
+	# INAV draws its horizon first and its sidebars over it
+	if bool(cfg["show_horizon"]) and _hz_style == "inav" and _inav != null:
+		_inav_ahi()
+	if bool(cfg["show_horizon_sidebars"]) and _sb_style == "inav":
+		if _inav != null:
+			_inav_sidebars()
+	elif bool(cfg["show_horizon_sidebars"]):
 		for y in range(-3, 4):
 			_over.append([SYM_AH_DECORATION, x0 - 7 * GW, (6 + y) * GH, "sidebar"])
 			_over.append([SYM_AH_DECORATION, x0 + 7 * GW, (6 + y) * GH, "sidebar"])
 		_over.append([SYM_AH_LEFT, x0 - 6 * GW, 6 * GH, "level"])
 		_over.append([SYM_AH_RIGHT, x0 + 6 * GW, 6 * GH, "level"])
-	if bool(cfg["show_horizon"]) and _style == "betaflight" and bool(cfg["horizon_uptilt"]):
+	if bool(cfg["show_horizon"]) and _hz_style == "betaflight" and bool(cfg["horizon_uptilt"]):
 		# on the real horizon: each of the nine characters at the height the
 		# horizon crosses its column, in the same ninths of a row - anywhere
 		# on the screen, not just Betaflight's nine rows, so it is there when
@@ -1437,7 +1866,7 @@ func _horizon() -> void:
 				var yn := roundi((float(hy) - 0.5) / 2.0)
 				if yn >= 0 and yn < ROWS * AH_SYMBOL_COUNT:
 					_over.append([SYM_AH_BAR9_0 + yn % AH_SYMBOL_COUNT, x0 + x * GW, (yn / AH_SYMBOL_COUNT) * GH, "horizon"])
-	elif bool(cfg["show_horizon"]) and _style == "betaflight":
+	elif bool(cfg["show_horizon"]) and _hz_style == "betaflight":
 		var att := _attitude()
 		var max_p := int(cfg["horizon_max_pitch"]) * 10
 		var max_r := int(cfg["horizon_max_roll"]) * 10
@@ -1451,6 +1880,539 @@ func _horizon() -> void:
 			var y := ((-roll * x) / 64) - pitch
 			if y >= 0 and y <= 81:
 				_over.append([SYM_AH_BAR9_0 + y % AH_SYMBOL_COUNT, x0 + x * GW, (AH_ROW + y / AH_SYMBOL_COUNT) * GH, "horizon"])
+
+
+# ---- heading, home ----
+# North is the map's -z, and headings turn clockwise from it, as a compass's.
+
+func _heading_deg() -> float:
+	if not (_player is Node3D) or not is_instance_valid(_player):
+		return 0.0
+	var f := -(_player as Node3D).global_transform.basis.z
+	return fposmod(rad_to_deg(atan2(f.x, -f.z)), 360.0)
+
+
+func _bearing(from: Vector3, to: Vector3) -> float:
+	return fposmod(rad_to_deg(atan2(to.x - from.x, -(to.z - from.z))), 360.0)
+
+
+# osdGetHeadingIntoDiscreteDirections: 0..directions-1, sector 0 centred on 0
+static func _discrete(heading: int, directions: int) -> int:
+	return ((posmod(heading, 360) + 360) * directions + 180) / 360 % directions
+
+
+# osdGetDirectionSymbolFromHeading: one of the 16 arrows, pointing that way
+# on the screen when the heading is relative to the quad's
+static func _dir_symbol(heading: int) -> int:
+	var h := _discrete(heading, 16)
+	return SYM_ARROW_SOUTH + (16 - h + 8) % 16
+
+
+# Betaflight's compass bar (osdElementCompassBar). INAV's heading graph is the
+# same nine characters in the same order, so there is one of them here.
+func _compass() -> void:
+	var hd := int(_heading_deg())
+	var start := _discrete(hd, 16)
+	for k in 9:
+		_sym(COMPASS_COL + k, 0, COMPASS_BAR[start + k])
+
+
+# Home, for the home arrow and the HUD: the game's spawn point as it
+# is now, so moving it (S, X) moves home at once; where you armed or last
+# respawned if there is none
+func _nav_home() -> Vector3:
+	var gs := get_node_or_null("/root/ZGamestate")
+	var rt = gs.get("respawn_transform") if gs != null else null
+	return rt.origin if rt is Transform3D else _home
+
+
+# Betaflight's home arrow and home distance (osdElementGpsHomeDirection and
+# osdElementGpsHomeDistance)
+func _home_bf() -> void:
+	if not (_player is Node3D) or not is_instance_valid(_player):
+		return
+	var pos := (_player as Node3D).global_position
+	var home := _nav_home()
+	var d := int(Vector2(home.x - pos.x, home.z - pos.z).length())
+	if d > 0:
+		_sym(13, 1, _dir_symbol(int(_bearing(pos, home)) - int(_heading_deg())))
+	else:
+		_sym(13, 1, SYM_OVER_HOME)
+	_sym(14, 1, SYM_HOMEFLAG)
+	_text(15, 1, _distance(float(d)))
+
+
+# The camera's uptilt on the quad you are flying, degrees up
+func _cam_uptilt() -> float:
+	var cam := _camera()
+	if cam == null or not (_player is Node3D):
+		return 0.0
+	var b := (_player as Node3D).global_transform.basis.orthonormalized()
+	return rad_to_deg(asin(clampf((-cam.global_transform.basis.z).dot(b.y), -1.0, 1.0)))
+
+
+# ---- INAV's parts ----
+# INAV draws round the crosshair on its grid of characters, its middle at
+# column 15, row 6. Here that middle character sits on the crosshair, as the
+# rest of the OSD's crosshair parts do; cells are given as columns and rows
+# of that grid.
+
+func _ipx(col: int, row: int) -> Vector2i:
+	return Vector2i(CX - GW / 2 + (col - I_MID_COL) * GW, _cross_y() - GH / 2 + (row - I_MID_ROW) * GH)
+
+
+# Whether a cell has something in it: another INAV character this time, or
+# the text under it
+func _busy(col: int, row: int) -> bool:
+	if _ibusy.has(Vector2i(col, row)):
+		return true
+	var p := _ipx(col, row)
+	var r := roundi(float(p.y) / GH)
+	if r < 0 or r >= ROWS:
+		return false
+	for c in [floori(float(p.x) / GW), floori(float(p.x + GW - 1) / GW)]:
+		if c >= 0 and c < COLS and (_cells[r * COLS + c] != 0x20 or _abusy.has(Vector2i(c, r))):
+			return true
+	return false
+
+
+# An element at INAV's own place for it: a cell of the OSD's grid
+func _iabs(col: int, row: int, code: int, what: String) -> void:
+	if col < 0 or col >= COLS or row < 0 or row >= ROWS:
+		return
+	_over.append([code, col * GW, row * GH, what, _inav])
+	_abusy[Vector2i(col, row)] = true
+
+
+# displayWriteChar / osdHudWrite: crush = over whatever is there
+func _iput(col: int, row: int, code: int, what: String, crush: bool = true) -> bool:
+	if col < 0 or col >= COLS or row < 0 or row >= ROWS:
+		return false
+	if not crush and _busy(col, row):
+		return false
+	var p := _ipx(col, row)
+	_over.append([code, p.x, p.y, what, _inav])
+	_ibusy[Vector2i(col, row)] = true
+	return true
+
+
+# osdGridDrawArtificialHorizon: a line of characters through the crosshair,
+# level ones while it is flatter than 45 degrees and upright ones past that,
+# so it never breaks up at a steep bank. With horizon_pitch_interval, the line
+# nearest the crosshair is the one for that many degrees up or down, its ends
+# bent the way you are going. Characters only go where nothing else is.
+func _inav_ahi() -> void:
+	var att := _attitude()
+	var roll := deg_to_rad(att.x / 10.0)
+	var pitch := deg_to_rad(att.y / 10.0)
+	if bool(cfg["horizon_uptilt"]):
+		pitch -= deg_to_rad(_cam_uptilt())            # osd_ahi_camera_uptilt_comp
+	if bool(cfg["horizon_invert"]):
+		roll = -roll                                   # osd_ahi_reverse_roll
+	var p2c := (I_AHI_HEIGHT / 2 + 0.5) / deg_to_rad(clampf(float(cfg["horizon_max_pitch"]), 10.0, 90.0))
+	var ky := sin(roll)
+	var kx := cos(roll)
+	var datum := 0
+	var interval := clampi(int(cfg["horizon_pitch_interval"]), 0, 30)
+	if interval > 0:
+		datum = interval * int(rad_to_deg(pitch) / interval)
+		pitch -= deg_to_rad(datum)
+	if absf(ky) < absf(kx):
+		var factor := datum / 20
+		for dx in range(-I_AHI_WIDTH / 2, I_AHI_WIDTH / 2 + 1):
+			var end_off := 0
+			if datum != 0 and absi(dx) == I_AHI_WIDTH / 2:
+				end_off = -(factor + 3 * signi(datum))
+			var fy := (I_ASPECT * dx) * (ky / kx) + (pitch + deg_to_rad(end_off)) * p2c + 0.49
+			var dy := floori(fy)
+			if dy >= -I_AHI_HEIGHT / 2 and dy <= I_AHI_HEIGHT / 2:
+				var c := I_AH_H_START + (I_AHI_H_SYM_COUNT - 1) - int((fy - dy) * I_AHI_H_SYM_COUNT)
+				_iput(I_MID_COL + dx, I_MID_ROW - dy, c, "inav_ahi", false)
+	else:
+		for dy in range(-I_AHI_HEIGHT / 2, I_AHI_HEIGHT / 2 + 1):
+			var fx := ((dy / I_ASPECT) - pitch * p2c) * (kx / ky) + 0.5
+			var dx := floori(fx)
+			if dx >= -I_AHI_WIDTH / 2 and dx <= I_AHI_WIDTH / 2:
+				_iput(I_MID_COL + dx, I_MID_ROW - dy, I_AH_V_START + int((fx - dx) * I_AHI_V_SYM_COUNT), "inav_ahi", false)
+
+
+# osdGridDrawSidebars: seven columns either side, sidebars_height rows up and
+# down; each can scroll with the altitude, the speed or the distance home,
+# with arrows for which way it is going
+func _inav_sidebars() -> void:
+	var hw := I_AH_SIDEBAR_WIDTH
+	var hh := clampi(int(cfg["sidebars_height"]), 0, 5)
+	var lt := _sb_update(_sb_state[0], str(cfg["sidebars_scroll_left"]).to_lower())
+	var rt := _sb_update(_sb_state[1], str(cfg["sidebars_scroll_right"]).to_lower())
+	if bool(cfg["sidebars_arrows"]):
+		for side in [[_sb_state[0], -hw], [_sb_state[1], hw]]:
+			var arrow := int(side[0].get("arrow", 0))
+			if arrow == 1:
+				_iput(I_MID_COL + side[1], I_MID_ROW - hh - 1, I_AH_DECORATION_UP, "inav_arrow")
+			elif arrow == 2:
+				_iput(I_MID_COL + side[1], I_MID_ROW + hh + 1, I_AH_DECORATION_DOWN, "inav_arrow")
+	if hh > 0:
+		for y in range(-hh, hh + 1):
+			_iput(I_MID_COL - hw, I_MID_ROW + y, lt, "inav_sidebar")
+			_iput(I_MID_COL + hw, I_MID_ROW + y, rt, "inav_sidebar")
+	_iput(I_MID_COL - hw + 1, I_MID_ROW, I_AH_RIGHT, "inav_level")
+	_iput(I_MID_COL + hw - 1, I_MID_ROW, I_AH_LEFT, "inav_level")
+
+
+# osdUpdateSidebar: the tick character, stepped one of six for every 20 cm of
+# altitude, 20 cm/s of speed or 5 m nearer or farther from home; the arrow
+# looks at the change every tenth of a second and goes after four still ones
+func _sb_update(st: Dictionary, scroll: String) -> int:
+	var dec := I_AH_DECORATION
+	var offset := 0
+	var steps := 0
+	var p := _player as Node3D if _player is Node3D and is_instance_valid(_player) else null
+	match scroll:
+		"altitude":
+			offset = int(((p.global_position.y - _home.y) if p else 0.0) * 100.0)
+			steps = offset / 20
+		"speed":
+			offset = int(float(_player.call("get_speed_kph")) / 3.6 * 100.0) if p and p.has_method("get_speed_kph") else 0
+			steps = offset / 20
+		"home_distance":
+			var hm := _nav_home()
+			offset = int(Vector2(hm.x - p.global_position.x, hm.z - p.global_position.z).length()) if p else 0
+			steps = offset / 5
+		_:
+			st["arrow"] = 0
+			st["offset"] = 0
+			return dec
+	if offset != 0:
+		dec -= steps % I_AH_DECORATION_COUNT
+		if dec > I_AH_DECORATION_MAX:
+			dec -= I_AH_DECORATION_COUNT
+		elif dec < I_AH_DECORATION_MIN:
+			dec += I_AH_DECORATION_COUNT
+	if _now - float(st.get("updated", -1.0)) > 0.1:
+		var prev := int(st.get("offset", 0))
+		if offset > prev:
+			st["arrow"] = 1
+			st["idle"] = 0
+		elif offset < prev:
+			st["arrow"] = 2
+			st["idle"] = 0
+		elif int(st.get("idle", 0)) > 3:
+			st["arrow"] = 0
+		else:
+			st["idle"] = int(st.get("idle", 0)) + 1
+		st["offset"] = offset
+		st["updated"] = _now
+	return dec
+
+
+static func _wrap180(a: int) -> int:
+	while a < -179:
+		a += 360
+	while a > 180:
+		a -= 360
+	return a
+
+
+static func _wrap360(a: int) -> int:
+	while a < 0:
+		a += 360
+	while a > 360:
+		a -= 360
+	return a
+
+
+# osdFormatCentiNumber, metric, as the HUD uses it: right-aligned in length
+# characters; too long for that and it goes to km, the decimal point folded
+# into INAV's dotted digits
+static func _inav_centi(centi: int, scale: int, max_dec: int, max_scaled_dec: int, length: int) -> Array:
+	var out := []
+	var neg := centi < 0
+	if neg:
+		centi = -centi
+		length -= 1
+	var ip := centi / 100
+	var millis := (centi % 100) * 10
+	var digits := str(ip).length()
+	var remaining := length - digits
+	var decimals := max_dec
+	if remaining < 0 and scale > 0:
+		decimals = max_scaled_dec
+		ip = ip / scale
+		millis = ((centi % (100 * scale)) * 10) / scale
+		digits = str(ip).length()
+		remaining = length - digits
+	decimals = mini(remaining, mini(decimals, 3))
+	remaining -= decimals
+	while remaining > 0:
+		out.append(0x20)
+		remaining -= 1
+	if neg:
+		out.append(0x2D)
+	for ch in str(ip):
+		out.append(ch.unicode_at(0))
+	if decimals > 0:
+		out[out.size() - 1] += I_ZERO_HALF_TRAILING_DOT - 0x30
+		var factor := 3
+		while decimals < factor:
+			factor -= 1
+			millis /= 10
+		var ds := str(millis)
+		var first := out.size()
+		for i in decimals - ds.length():
+			out.append(0x30)
+		for ch in ds:
+			out.append(ch.unicode_at(0))
+		out[first] += I_ZERO_HALF_LEADING_DOT - 0x30
+	return out
+
+
+# Other players' quads: the game's LOSQuads, the ones showing
+func _peers() -> Array:
+	var out := []
+	var holder := _scene.get_node_or_null("LOSQuads") if _scene != null and is_instance_valid(_scene) else null
+	if holder == null:
+		return out
+	for q in holder.get_children():
+		if q is Node3D and (q as Node3D).is_visible_in_tree() and "stick_position" in q:
+			out.append(q)
+	return out
+
+
+# INAV's HUD (the crosshair element's osd_hud.c parts): homing arrows round
+# the crosshair, the home point where it is in the picture, and other
+# players' quads as INAV shows aircraft from its radar, A to D
+func _inav_hud() -> void:
+	if not (_player is Node3D) or not is_instance_valid(_player):
+		return
+	var pos := (_player as Node3D).global_position
+	var hd := int(_heading_deg())
+	var home := _nav_home()
+	var home_dist := int(Vector2(home.x - pos.x, home.z - pos.z).length())
+	var home_dir := int(_bearing(pos, home))
+	var alt := int(pos.y - home.y)
+	# (INAV has no direction home while on it)
+	if bool(cfg["hud_homing"]) and home_dist > 0:
+		_hud_homing(home_dir, hd, alt, home_dist)
+	if bool(cfg["hud_homepoint"]) and home_dist > 0:
+		_hud_poi(home, home_dist, home_dir, -alt, 0, I_HOME, 0, 0)
+	var n := _radar_n()
+	if n <= 0:
+		_radar_slot.clear()
+		return
+	# the nearest n in range keep their letters; a new one takes the first free
+	var near := []
+	for q in _peers():
+		var qp := (q as Node3D).global_position
+		var d := Vector2(qp.x - pos.x, qp.z - pos.z).length()
+		if d >= float(cfg["hud_radar_range_min"]) and d <= float(cfg["hud_radar_range_max"]):
+			near.append([d, q])
+	near.sort_custom(func(a, b): return a[0] < b[0])
+	near = near.slice(0, n)
+	var keep := {}
+	for e in near:
+		keep[e[1]] = true
+	for q in _radar_slot.keys():
+		if not keep.has(q) or not is_instance_valid(q):
+			_radar_slot.erase(q)
+	for e in near:
+		if not _radar_slot.has(e[1]):
+			var used := _radar_slot.values()
+			for i in n:
+				if not i in used:
+					_radar_slot[e[1]] = i
+					break
+	var order := []
+	for e in near:
+		order.append([_radar_slot.get(e[1], 0), e])
+	order.sort_custom(func(a, b): return a[0] < b[0])
+	for o in order:
+		var q: Node3D = o[1][1]
+		var qp := q.global_position
+		var f := -q.global_transform.basis.z
+		var q_hd := int(fposmod(rad_to_deg(atan2(f.x, -f.z)), 360.0))
+		_hud_poi(qp, int(o[1][0]), int(_bearing(pos, qp)), int(qp.y - pos.y), 1, 0x41 + int(o[0]), q_hd, 4)
+
+
+# osdHudDrawHoming: arrows either side of the crosshair, more of them the
+# further round home is, and above or below it for how far up or down it is
+# while it is ahead
+func _hud_homing(home_dir: int, hd: int, alt: int, dist: int) -> void:
+	var l := -1
+	var r := -1
+	var u := -1
+	var dn := -1
+	var e := _wrap180(home_dir - hd)
+	var H := I_HOMING_H
+	if e <= -162 or e >= 162:
+		l = I_HUD_ARROWS_L3; r = I_HUD_ARROWS_R3
+	elif e > -162 and e <= -126:
+		l = I_HUD_ARROWS_L3; r = I_HUD_ARROWS_R1 + 1
+	elif e > -126 and e <= -90:
+		l = I_HUD_ARROWS_L3; r = I_HUD_ARROWS_R1
+	elif e > -90 and e <= -H[2]:
+		l = I_HUD_ARROWS_L3
+	elif e > -H[2] and e <= -H[1]:
+		l = I_HUD_ARROWS_L1 + 1
+	elif e > -H[1] and e <= -H[0]:
+		l = I_HUD_ARROWS_L1
+	elif e >= H[0] and e < H[1]:
+		r = I_HUD_ARROWS_R1
+	elif e >= H[1] and e < H[2]:
+		r = I_HUD_ARROWS_R1 + 1
+	elif e >= H[2] and e < 90:
+		r = I_HUD_ARROWS_R3
+	elif e >= 90 and e < 126:
+		l = I_HUD_ARROWS_L1; r = I_HUD_ARROWS_R3
+	elif e >= 126 and e < 162:
+		l = I_HUD_ARROWS_L1 + 1; r = I_HUD_ARROWS_R3
+	if absi(e) < 90:
+		var home_angle := rad_to_deg(atan2(float(alt), float(dist)))
+		var v := int(home_angle - _attitude().y / 10 + int(_cam_uptilt()))
+		var V := I_HOMING_V
+		if v > -V[1] and v <= -V[0]:
+			u = I_HUD_ARROWS_U1
+		elif v > -V[2] and v <= -V[1]:
+			u = I_HUD_ARROWS_U1 + 1
+		elif v <= -V[2]:
+			u = I_HUD_ARROWS_U1 + 2
+		elif v >= V[0] and v < V[1]:
+			dn = I_HUD_ARROWS_D1
+		elif v >= V[1] and v < V[2]:
+			dn = I_HUD_ARROWS_D1 + 1
+		elif v >= V[2]:
+			dn = I_HUD_ARROWS_D1 + 2
+	for a in [[l, -2, 0], [r, 2, 0], [u, 0, -1], [dn, 0, 1]]:
+		if a[0] >= 0:
+			_iput(I_MID_COL + a[1], I_MID_ROW + a[2], a[0], "hud_homing")
+
+
+# osdHudDrawPoi: a marker where the point is in the picture - found here
+# through the game's camera, where INAV works it out from its field-of-view
+# settings - kept inside the HUD's margins. Out of the picture it goes to the
+# side it is round, with arrows, stacked below any already there. Under it
+# its distance, or for another quad its height above or below you and its
+# distance in turn, 3 s each; beside a quad, which way it is heading, where it
+# is round you, and its signal (always full here).
+func _hud_poi(world: Vector3, dist: int, dir: int, alt: int, type: int, symbol: int, heading: int, sig: int) -> void:
+	var min_x := clampi(int(cfg["hud_margin_h"]), 0, 4) + 2
+	var max_x := COLS - clampi(int(cfg["hud_margin_h"]), 0, 4) - 3
+	var min_y := clampi(int(cfg["hud_margin_v"]), 1, 3)
+	var max_y := ROWS - clampi(int(cfg["hud_margin_v"]), 1, 3) - 2
+	var hd := int(_heading_deg())
+	var err_x := _wrap180(dir - hd)
+	var px := -1
+	var py := -1
+	var oos := true
+	var cam := _camera()
+	if cam != null:
+		var q = _to_osd(cam, Vector2(cam.get_viewport().get_visible_rect().size), world)
+		if q != null:
+			px = I_MID_COL + roundi((q.x - CX) / GW)
+			if px >= min_x and px <= max_x:
+				oos = false
+				py = clampi(I_MID_ROW + roundi((q.y - _cross_y()) / GH), min_y, max_y - 1)
+	if oos or type == 1:
+		if oos:
+			px = max_x if err_x > 0 else min_x
+			py = I_MID_ROW - 1
+		if _busy(px, py):
+			py = I_MID_ROW - 3
+			while _busy(px, py) and py < max_y - 3:
+				py += 2
+		if type == 1:
+			var d := clampi((err_x + 180) / 30, 0, 12)
+			_iput(px + 2, py, I_HUD_CARDINAL + (0 if d == 12 else d), "hud_radar")
+		elif err_x > 0:
+			_iput(px + 2, py, I_HUD_ARROWS_R3 - clampi((180 - err_x) / 45, 0, 2), "hud_home")
+		else:
+			_iput(px - 2, py, I_HUD_ARROWS_L3 - clampi((180 + err_x) / 45, 0, 2), "hud_home")
+	var what := "hud_radar" if type == 1 else "hud_home"
+	_iput(px, py, symbol, what)
+	if type == 1:
+		_iput(px - 1, py, I_DECORATION + ((_wrap360(heading - hd) + 22) / 45) % 8, what)
+		_iput(px + 1, py, I_HUD_SIGNAL_0 + clampi(sig, 0, 4), what)
+	var buff := []
+	if type > 0 and int(_now) % 6 < 3:
+		buff = [I_AH_DECORATION_UP if alt >= 0 else I_AH_DECORATION_DOWN]
+		for ch in "%3d" % absi(clampi(alt, -999, 999)):
+			buff.append(ch.unicode_at(0))
+	else:
+		buff = _inav_centi(dist * 100, 1000, 0, 4 if type == 1 else 3, 4 if type == 1 else 3)
+	for i in buff.size():
+		if buff[i] != 0x20:
+			_iput(px - 1 + i, py + 1, buff[i], what)
+
+
+# ---- more of INAV's elements, at INAV's places for them ----
+
+func _inav_elements(blink: bool) -> void:
+	var vz := _g_vel.y if _g_have else 0.0          # m/s, up
+	if bool(cfg["show_vario"]):
+		_inav_vario(vz * 100.0)
+	if bool(cfg["show_vario_number"]):
+		# OSD_VERTICAL_SPEED_INDICATOR (24, 7): m/s, one decimal
+		var b := _inav_centi(int(vz * 100.0), 0, 1, 0, 3)
+		b.append(I_MS)
+		for i in b.size():
+			if b[i] != 0x20:
+				_iabs(24 + i, 7, b[i], "vario_number")
+	if bool(cfg["show_g_force"]):
+		# OSD_GFORCE (12, 4): blinks above g_force_alarm (osd_gforce_alarm)
+		if blink or g_force <= float(cfg["g_force_alarm"]):
+			var b := [I_GFORCE] + _inav_centi(int(g_force * 100.0), 0, 2, 0, 3)
+			for i in b.size():
+				if b[i] != 0x20:
+					_iabs(12 + i, 4, b[i], "g_force")
+	if bool(cfg["show_throttle_gauge"]):
+		_inav_throttle_gauge(clampi(int(round(_throttle() * 100.0)), 0, 100))
+
+
+# osdGridDrawVario, at (23, 5): a column of five, an arrow for every 0.5 m/s
+# up or down (OSD_VARIO_CM_S_PER_ARROW), doubled every 1 m/s
+func _inav_vario(zvel: float) -> void:
+	var v := int(zvel / 50.0)
+	var ch := [-1, -1, -1, -1, -1]
+	if v >= 6:
+		ch[0] = I_VARIO_UP_2A
+	elif v == 5:
+		ch[0] = I_VARIO_UP_1A
+	if v >= 4:
+		ch[1] = I_VARIO_UP_2A
+	elif v == 3:
+		ch[1] = I_VARIO_UP_1A
+	if v >= 2:
+		ch[2] = I_VARIO_UP_2A
+	elif v == 1:
+		ch[2] = I_VARIO_UP_1A
+	if v <= -2:
+		ch[2] = I_VARIO_DOWN_2A
+	elif v == -1:
+		ch[2] = I_VARIO_DOWN_1A
+	if v <= -4:
+		ch[3] = I_VARIO_DOWN_2A
+	elif v == -3:
+		ch[3] = I_VARIO_DOWN_1A
+	if v <= -6:
+		ch[4] = I_VARIO_DOWN_2A
+	elif v == -5:
+		ch[4] = I_VARIO_DOWN_1A
+	for i in 5:
+		if ch[i] >= 0:
+			_iabs(23, 5 + i, ch[i], "vario")
+
+
+# osdGridDrawThrottleGauge: a column of five filling from the bottom, half a
+# character for every 10% of throttle; at (6, 5) here, clear of the vario
+func _inav_throttle_gauge(thr: int) -> void:
+	var ch := [I_THR_GAUGE_EMPTY, I_THR_GAUGE_EMPTY, I_THR_GAUGE_EMPTY, I_THR_GAUGE_EMPTY, I_THR_GAUGE_EMPTY]
+	for i in 5:
+		var full := 100 - 20 * i
+		if thr >= full:
+			ch[i] = I_THR_GAUGE_FULL
+		elif thr >= full - 10:
+			ch[i] = I_THR_GAUGE_HALF
+	for i in 5:
+		_iabs(6, 5 + i, ch[i], "throttle_gauge")
 
 
 # ---- BrainFPV's graphical OSD ----
@@ -1882,18 +2844,22 @@ func _draw_cells(with_over: bool) -> void:
 	if with_over:
 		for o in _over:
 			var code: int = o[0]
-			_img.blend_rect(_font, Rect2i((code % 16) * GW, (code / 16) * GH, GW, GH), Vector2i(o[1], o[2]))
+			var f: Image = o[4] if o.size() > 4 else _font
+			_img.blend_rect(f, Rect2i((code % 16) * GW, (code / 16) * GH, GW, GH), Vector2i(o[1], o[2]))
 			extras.append([o[3], code, o[1], o[2]])
-		if _style == "brainfpv" and bool(cfg["show_horizon"]):
+		if _hz_style == "brainfpv" and bool(cfg["show_horizon"]):
 			_bfpv_horizon()
 		# the crosshair on top of the text, as Betaflight draws it
 		if _xhair != null:
 			var at := Vector2i(CX - _xhair.get_width() / 2, _cross_y() - _xhair.get_height() / 2)
 			_img.blend_rect(_xhair, Rect2i(Vector2i.ZERO, _xhair.get_size()), at)
 			extras.append(["crosshair", 0, at.x, at.y])
+		for o in _over_late:
+			var code: int = o[0]
+			_img.blend_rect(o[4], Rect2i((code % 16) * GW, (code / 16) * GH, GW, GH), Vector2i(o[1], o[2]))
+			extras.append([o[3], code, o[1], o[2]])
 		# and BrainFPV's own drawings last, as in osdUpdateLocal
-		if _style == "brainfpv":
-			_bfpv_scales()
+		_bfpv_scales()
 		if bool(cfg["show_sticks"]) and _sticks_style == "brainfpv":
 			_bfpv_sticks()
 	_tex.update(_img)

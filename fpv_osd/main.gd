@@ -1,5 +1,5 @@
 extends Node
-## fpv_osd 1.0
+## fpv_osd 1.1
 ##
 ## A Betaflight-style OSD for The Zone FPV, loaded by zonemods (override.cfg in
 ## the game folder). Settings are in fpv_osd/settings.cfg; osd.gd does the work.
@@ -7,7 +7,7 @@ extends Node
 ##
 ## Uninstall: delete the fpv_osd folder.
 
-const VERSION := "1.0"
+const VERSION := "1.1"
 const DIR := "res://fpv_osd/"
 
 var _log := PackedStringArray()
