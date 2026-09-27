@@ -27,6 +27,18 @@ OSD simulation, with features from Betaflight, BrainFPV, Quicksilver, and iNav. 
 
 Causes audio to only be heard from the spawn position, with simulated doppler effect for fly-bys and allows for emulating multiplayer drone sounds. This can be kinda scary loading into a popular OG Bando and you may wanna fly somewhere else and change your spawn with S. Only simulates the closest 8 drones to you, you can change how many drones you can hear in the settings.cfg.
 
+## throttle fix
+Throttle Fix addresses the issue with the game initializing the throttle in the middle position until you move your throttle some amount.
+
+What it does:
+When your controller is initially connected, or reconnected, it will set your throttle to 0%. Since you have to be at 0 throttle to ARM the drone, your throttle will usually be all the way down. However, the game starts with 50% throttle, so you have to wiggle the gimbal to re-register what the true position is. This mod sets your throttle to 0 between your controller initialization and its first input.
+
+
+How it works:
+It works out which end is "down" from your controller setup, so an inverted throttle, custom end points or a centre offset are handled. 
+If you reconnect the radio mid-session, it does this again.
+A gamepad set up so the resting stick already means zero throttle is left alone.
+
 ## zonemods
 
 This is the mod loader that my other mods rely on.
