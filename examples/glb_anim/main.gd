@@ -55,31 +55,137 @@ func _in_custom_map(node: Node) -> bool:
 
 ## Plays every animation the player holds. An AnimationPlayer plays one
 ## animation at a time, and Blender exports each object's action as an
-## animation of its own, so each one after the first gets a player of its own.
+## animation of its own - so animations that move different objects each get
+## a player and play at once, and ones that move the same objects (a door's
+## open and close) take turns on one, in the order that runs on smoothly.
 func _start(player: AnimationPlayer) -> void:
 	if not is_instance_valid(player) or not player.is_inside_tree():
 		return
-	var names := player.get_animation_list()
+	var names := Array(player.get_animation_list())
 	names.erase("RESET")   # Godot's rest pose, not an animation to play
-	for i in names.size():
-		var anim := player.get_animation(names[i])
-		anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
+	var groups := _groups(player, names)
+	for i in groups.size():
+		var seq: Array = _order(player, groups[i])
 		var p := player
-		var anim_name: String = names[i]
 		if i > 0:
+			# a player of its own, with just these animations
 			p = AnimationPlayer.new()
 			p.set_meta("glb_animations", true)
 			p.name = "%s_%d" % [player.name, i]
 			p.root_node = player.root_node
 			var lib := AnimationLibrary.new()
-			anim_name = anim_name.get_file()
-			lib.add_animation(anim_name, anim)
+			var own := []
+			for n in seq:
+				lib.add_animation(String(n).get_file(), player.get_animation(n))
+				own.append(String(n).get_file())
 			p.add_animation_library("", lib)
 			player.get_parent().add_child(p)
-		p.speed_scale = speed
-		p.play(anim_name)
+			seq = own
+		_play(p, seq)
+		print("[glb_animations] playing %s" % " > ".join(seq))
+
+
+func _play(p: AnimationPlayer, seq: Array) -> void:
+	p.speed_scale = speed
+	var clock := Time.get_unix_time_from_system() * speed
+	if seq.size() == 1:
+		var anim := p.get_animation(seq[0])
+		anim.loop_mode = Animation.LOOP_LINEAR if loop else Animation.LOOP_NONE
+		p.play(seq[0])
 		if sync_to_clock and loop and anim.length > 0.0:
 			# everyone's clock says the same time, so every player in a
 			# multiplayer race sees the same part of the loop
-			p.seek(fmod(Time.get_unix_time_from_system() * speed, anim.length), true)
-		print("[glb_animations] playing %s (%.1f s)" % [anim_name, anim.length])
+			p.seek(fmod(clock, anim.length), true)
+		return
+	# several in turn: each once, then the next
+	var total := 0.0
+	for n in seq:
+		p.get_animation(n).loop_mode = Animation.LOOP_NONE
+		total += p.get_animation(n).length
+	var at := 0
+	var offset := 0.0
+	if sync_to_clock and loop and total > 0.0:
+		offset = fmod(clock, total)
+		while at < seq.size() - 1 and offset >= p.get_animation(seq[at]).length:
+			offset -= p.get_animation(seq[at]).length
+			at += 1
+	p.animation_finished.connect(_next.bind(p, seq))
+	p.play(seq[at])
+	if offset > 0.0:
+		p.seek(offset, true)
+
+
+func _next(finished: StringName, p: AnimationPlayer, seq: Array) -> void:
+	var i := seq.find(String(finished))
+	if i < 0 or (i == seq.size() - 1 and not loop):
+		return
+	p.play(seq[(i + 1) % seq.size()])
+
+
+## The animations, grouped by the nodes they move: two that move any of the
+## same nodes go in one group
+func _groups(player: AnimationPlayer, names: Array) -> Array:
+	var groups := []   # [names, nodes moved]
+	for n in names:
+		var anim := player.get_animation(n)
+		var nodes := {}
+		for t in anim.get_track_count():
+			nodes[String(anim.track_get_path(t).get_concatenated_names())] = true
+		var mine := [[n], nodes]
+		for g in groups.duplicate():
+			for k in nodes:
+				if g[1].has(k):
+					mine[0] = g[0] + mine[0]
+					mine[1].merge(g[1])
+					groups.erase(g)
+					break
+		groups.append(mine)
+	return groups.map(func(g): return g[0])
+
+
+## The order of a group's animations that runs on most smoothly, each
+## starting where the one before it ends (and the last where the first
+## begins): tried every way for up to 6
+func _order(player: AnimationPlayer, names: Array) -> Array:
+	if names.size() < 3 or names.size() > 6:
+		return names
+	var best := names
+	var best_gap := INF
+	for rest in _permutations(names.slice(1)):
+		var seq: Array = [names[0]] + rest
+		var gap := 0.0
+		for i in seq.size():
+			gap += _gap(player.get_animation(seq[i]), player.get_animation(seq[(i + 1) % seq.size()]))
+		if gap < best_gap:
+			best_gap = gap
+			best = seq
+	return best
+
+
+## How far b's first pose is from a's last, over the tracks both have
+static func _gap(a: Animation, b: Animation) -> float:
+	var gap := 0.0
+	for tb in b.get_track_count():
+		var ta := a.find_track(b.track_get_path(tb), b.track_get_type(tb))
+		if ta < 0:
+			continue
+		match b.track_get_type(tb):
+			Animation.TYPE_POSITION_3D:
+				gap += a.position_track_interpolate(ta, a.length).distance_to(b.position_track_interpolate(tb, 0.0))
+			Animation.TYPE_ROTATION_3D:
+				gap += a.rotation_track_interpolate(ta, a.length).angle_to(b.rotation_track_interpolate(tb, 0.0))
+			Animation.TYPE_SCALE_3D:
+				gap += a.scale_track_interpolate(ta, a.length).distance_to(b.scale_track_interpolate(tb, 0.0))
+	return gap
+
+
+static func _permutations(items: Array) -> Array:
+	if items.size() <= 1:
+		return [items]
+	var out := []
+	for i in items.size():
+		var rest := items.duplicate()
+		rest.remove_at(i)
+		for p in _permutations(rest):
+			out.append([items[i]] + p)
+	return out

@@ -10,7 +10,11 @@ stands still. This starts every animation in the map as it loads, looping.
 MAKING AN ANIMATED MAP
   In Blender, animate objects - a spinning fan, a sliding door, a gate that
   swings - and export the map to .glb as usual, with Animation ticked (it
-  is by default). Each object's action plays at the same time.
+  is by default). Each object's action plays at the same time. Actions
+  that move the same object (a door's open and close) take turns instead,
+  in the order where each starts where the last one ended.
+
+  To loop smoothly, make an action's last keyframe the same as its first.
 
   Move whole objects (location, rotation, scale): the game gives every mesh
   a collider, which moves with it. Armature and shape-key animations play
