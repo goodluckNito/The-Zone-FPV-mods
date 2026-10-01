@@ -19,6 +19,8 @@ Lets you define a virtual battery to a drone preset, batteries will drain during
 
 The default method to equip a fresh battery is to DISARM and RESET. This will also take into consideration if you move your spawn point with S. You can configure the fresh pack behavior in settings.cfg
 
+![Battery Sag](batterysag1.1.png)
+
 ## fpv_osd
 
 OSD simulation, with features from Betaflight, BrainFPV, Quicksilver, and iNav. Replaces a few in-game UI elements and integrates them into OSD, like ARMED message, Turtle Mode/Crash flip, and gets rid of "press r to reset" message on ground touch. Custom crosshair support, horizon lines, custom layouts and font support, and more. Compatible with battery_sag mod to show battery life.
@@ -53,6 +55,8 @@ lets you edit settings in-game (adds a Mods button to pause menu, or overlay wit
 
 simulates rotor drag. Props draw air in and throw it out. Force grows with the speed itself.
 
+![Rotor Drag](rotordrag1.png)
+
 ## Drones
 
 All drone settings that interface with other mods. Allows you to create custom Drone presets with their own name, weight, thrust, top speed, drag on each axis, rotation/turtle torque, camera angle/fov/fisheye, prop size, motor and motor sound, battery and OSD craft name
@@ -60,6 +64,8 @@ All drone settings that interface with other mods. Allows you to create custom D
 ## Dirty Air 
 
 Cause you to leave air behind, lasting a second or two and spreading. Floor gives more thrust under the props and ceiling pulls the props up.
+
+![Dirty Air](dirtyair1.png)
 
 ## Flight controller
 
