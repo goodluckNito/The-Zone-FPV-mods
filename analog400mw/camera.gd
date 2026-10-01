@@ -43,7 +43,6 @@ var _sv: SubViewport = null
 var _pp: CanvasItem = null
 var _orig := {}
 var _t_retry := 0.0
-var _off := false
 var _res_on := true
 var _glow_on := true
 var _env: Environment = null
@@ -60,7 +59,6 @@ func setup(dir: String) -> String:
 				cfg[k] = c.get_value("camera", k)
 	_res_on = float(cfg["lines"]) > 0.0
 	_glow_on = float(cfg["glare"]) > 0.0
-	_off = not _res_on and not _glow_on and float(cfg["haze"]) <= 0.0 and float(cfg["glare_tint"]) <= 0.0
 	var parts := PackedStringArray()
 	if _res_on:
 		parts.append("%d lines%s" % [int(cfg["lines"]), ", antialiased" if bool(cfg["antialias"]) else ""])
@@ -70,9 +68,17 @@ func setup(dir: String) -> String:
 	return "camera: " + ", ".join(parts)
 
 
+## Settings changed while the game runs: back to the game's own picture,
+## then as now set (from the next frame)
+func reload(dir: String) -> String:
+	_restore()
+	return setup(dir)
+
+
+# Runs even with lines and glare both off: haze and glare_tint are the
+# shader's, and set here every frame (its own defaults are 1.0), so 0 - or a
+# change while the game runs - always reaches it
 func _process(delta: float) -> void:
-	if _off:
-		return
 	var cs := get_tree().current_scene
 	_t_retry += delta
 	if cs != _scene or (_sv == null and _t_retry > 1.0):

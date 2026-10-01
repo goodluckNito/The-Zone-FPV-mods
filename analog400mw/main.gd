@@ -1,5 +1,5 @@
 extends Node
-## analog400mw 2.0.1
+## analog400mw 2.1.0
 ##
 ## Loaded by zonemods (override.cfg in the game folder). At startup it loads
 ## small resource packs over three of the game's files, applies settings.cfg to
@@ -8,7 +8,7 @@ extends Node
 ##
 ## Uninstall: delete override.cfg and the zonemods and analog400mw folders.
 
-const VERSION := "2.0.1"
+const VERSION := "2.1.0"
 const DIR := "res://analog400mw/"
 const SHADER_PATH := "res://ingame/ingame_main.gdshader"
 
@@ -86,7 +86,8 @@ func _tune_shader() -> void:
 		n += 1
 	if code != sh.code:
 		sh.code = code
-	_keep.append(sh)
+	if not _keep.has(sh):
+		_keep.append(sh)
 	_say("tuning: %d values from settings.cfg" % n)
 
 
@@ -107,6 +108,17 @@ func _link() -> void:
 		_say("range: the picture is gone at about %d m in the open; walls cut it shorter" % roundi(r))
 	else:
 		_say("range: no loss in the open, only behind walls")
+
+
+## Called by mod_settings when settings.cfg has been changed in the game:
+## the shader's values, the range and the camera, all at once
+func zm_apply_settings() -> void:
+	_tune_shader()
+	_link()
+	var cam := get_node_or_null("Camera")
+	if cam != null and cam.has_method("reload"):
+		_say(cam.reload(DIR))
+	_write_status()
 
 
 func _exit_tree() -> void:

@@ -216,6 +216,8 @@ func _physics_process(dt: float) -> void:
 		_attach_local()
 		if _mp:
 			_sync_remotes()
+		else:
+			_quiet_remotes()
 		if not sources.is_empty():
 			var pilot := _pilot()
 			var do_rays := false
@@ -419,6 +421,14 @@ func _sync_remotes() -> void:
 		s.player.volume_db = -80.0
 		add_child(s.player)
 		sources.append(s)
+
+
+# multiplayer turned off while the game runs (mod_settings): the other
+# players' quads still heard fade out and go, as one that leaves does
+func _quiet_remotes() -> void:
+	for s in sources:
+		if s.remote and not s.leaving:
+			s.leaving = true
 
 
 func _drop_all() -> void:

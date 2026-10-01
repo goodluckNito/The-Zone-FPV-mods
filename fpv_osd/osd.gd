@@ -16,6 +16,8 @@ extends Node
 ##     current       amps (float, optional)
 ##     lihv          (bool, optional - settings.cfg's battery_lihv otherwise)
 ##     capacity_mah  (float, optional)
+## A drone another mod adds (the drones mod's zm_vehicle(id)) can bring its own
+## craft_name, and battery cells, mAh and chemistry for the display-only pack.
 ##
 ## Battery warnings and the post-flight stats screen follow Betaflight's own
 ## code (sensors/battery.c, osd/osd_warnings.c, osd/osd.c): the voltage shown
@@ -170,6 +172,8 @@ const DEFAULTS := {
 	"crosshair": "off",
 	"crosshair_size": 1.0,
 	"crosshair_offset": 0.0,
+	"crosshair_image": "crosshairs/reticle.png",
+	"crosshair_opacity": 1.0,
 	"show_horizon": false,
 	"horizon_style": "auto",
 	"horizon_pitch_interval": 0,
@@ -250,7 +254,7 @@ const TOTALS_KEYS := ["stat_total_flights", "stat_total_time", "stat_total_dista
 # one drawn in the OSD's white-with-black-edge style, at the picture's centre
 const CROSSHAIRS := ["off", "auto", "betaflight", "brainfpv", "inav", "inav_aircraft", "inav_type3",
 	"inav_type4", "inav_type5", "inav_type6", "inav_type7", "inav_type8",
-	"plus", "gap", "cross", "dot", "circle", "chevron"]
+	"plus", "gap", "cross", "dot", "circle", "chevron", "image"]
 # style: the text, how often it is redrawn, and what "auto" means below
 const STYLES := ["betaflight", "brainfpv"]
 # each part's own choices
@@ -346,6 +350,10 @@ var _over: Array = []               # [code, x, y] font glyphs to draw at pixel 
 var _over_late: Array = []          # the same, drawn over the crosshair
 var _xhair: Image = null
 var _xhair_style := "off"
+var _ximg: ImageTexture = null      # crosshair="image": the PNG, drawn on its own layer
+var _ximg_size := Vector2i.ZERO
+var _xlayer: ColorRect = null
+var _xhair_drawn := false           # the OSD is showing its crosshair (not the stats screen)
 var _style := "betaflight"
 var _sticks_style := "brainfpv"
 var _hz_style := "betaflight"
@@ -371,6 +379,7 @@ var _game_box: CanvasItem = null
 var _game_sticks: CanvasItem = null
 var _game_left: Control = null
 var _span := 55.0
+var _t_span := 0.0
 var _t_draw := 0.0
 var _off := false
 var _t_retry := 0.0
@@ -405,6 +414,8 @@ var _shown_cells := 1
 var _cells_prev := 0
 var _shown_lihv := true
 var _from_mod := false  # the battery comes from another mod
+var _vid := ""          # the drone chosen in the game's menu
+var _preset := {}       # that drone from another mod (the drones mod's zm_vehicle), or {}
 var _capacity := 0.0
 
 # battery warnings
@@ -456,9 +467,15 @@ var _g_acc := Vector3(0, 9.81, 0)
 
 
 ## Reads settings.cfg [osd] and the font. Returns lines for status.txt.
-func setup(dir: String, core: Node) -> String:
+## live: settings changed while the game runs - the flight's stats, pack and
+## totals carry on.
+func setup(dir: String, core: Node, live := false) -> String:
 	_dir = dir
 	_core = core
+	if live:
+		_off = false
+		_bad = ""
+		_stat_keys.clear()
 	cfg = DEFAULTS.duplicate()
 	var c := ConfigFile.new()
 	if c.load(dir + "settings.cfg") == OK and c.has_section("osd"):
@@ -475,8 +492,14 @@ func setup(dir: String, core: Node) -> String:
 	if _font == null:
 		_off = true
 		return "osd: off - no readable .mcm font in the fonts folder"
-	_img = Image.create_empty(COLS * GW, ROWS * GH, false, Image.FORMAT_RGBA8)
-	_tex = ImageTexture.create_from_image(_img)
+	# the picture the OSD is drawn into: made once and kept, so a change of
+	# settings while flying (mod_settings) keeps drawing into the texture
+	# the overlay shows
+	if _img == null or _tex == null or _img.get_size() != Vector2i(COLS * GW, ROWS * GH):
+		_img = Image.create_empty(COLS * GW, ROWS * GH, false, Image.FORMAT_RGBA8)
+		_tex = ImageTexture.create_from_image(_img)
+		if _overlay != null and is_instance_valid(_overlay) and _overlay.material is ShaderMaterial:
+			(_overlay.material as ShaderMaterial).set_shader_parameter("osd_tex", _tex)
 	_cells.resize(COLS * ROWS)
 	var xnote := ""
 	_rc_elrs = str(cfg["rc_link"]).strip_edges().to_lower() != "video"
@@ -516,15 +539,39 @@ func setup(dir: String, core: Node) -> String:
 			_inav = null
 			inav_note = " - fonts/%s is not a 512-character INAV font, so INAV's parts are off" % inav_name
 	_xhair = make_crosshair(_xhair_style, float(cfg["crosshair_size"]), _font, _inav)
+	_ximg = null
+	_ximg_size = Vector2i.ZERO
+	var opacity := clampf(float(cfg["crosshair_opacity"]), 0.0, 1.0)
+	if _xhair_style == "image":
+		var im := load_crosshair_png(dir, str(cfg["crosshair_image"]))
+		if im == null:
+			xnote += " - could not read %s (a .png in the fpv_osd folder or its crosshairs folder), so no crosshair" % str(cfg["crosshair_image"])
+			_xhair_style = "off"
+		else:
+			_ximg_size = im.get_size()
+			im.premultiply_alpha()
+			im.generate_mipmaps()
+			_ximg = ImageTexture.create_from_image(im)
+	elif _xhair != null and opacity < 1.0:
+		for y in _xhair.get_height():
+			for x in _xhair.get_width():
+				var px := _xhair.get_pixel(x, y)
+				px.a *= opacity
+				_xhair.set_pixel(x, y, px)
 	for k in STAT_ORDER:
 		if bool(cfg[k]):
 			_stat_keys.append(k)
-	_load_totals()
-	_new_pack()
-	_stats_reset()
+	if not live:
+		_load_totals()
+		_new_pack()
+		_stats_reset()
 	var xh := "style: %s; crosshair: %s" % [_style, _xhair_style]
+	if _xhair_style == "image":
+		xh += " %s (%dx%d)" % [str(cfg["crosshair_image"]), _ximg_size.x, _ximg_size.y]
 	if _xhair_style != "off":
 		xh += ", size %s" % str(snappedf(float(cfg["crosshair_size"]), 0.01))
+		if opacity < 1.0:
+			xh += ", opacity %s" % str(snappedf(opacity, 0.01))
 		if float(cfg["crosshair_offset"]) != 0.0:
 			xh += ", %+g%% of the picture up" % float(cfg["crosshair_offset"])
 	var hz := []
@@ -650,7 +697,7 @@ func _describe_stats() -> String:
 ## null for "off".
 static func make_crosshair(style: String, size: float, font: Image, inav: Image = null) -> Image:
 	var sz := clampf(size, 0.25, 4.0)
-	if style == "off" or font == null:
+	if style == "off" or style == "image" or font == null:
 		return null
 	if style.begins_with("inav"):
 		# osdHudDrawCrosshair: the middle character on the crosshair
@@ -743,6 +790,22 @@ static func make_crosshair(style: String, size: float, font: Image, inav: Image 
 
 ## One of BrainFPV's small fonts: a 16x16 grid of w x h characters, clear,
 ## black, grey or white. null if it cannot be read.
+## A crosshair .png from the mod's folder (or a folder in it, as
+## "crosshairs/reticle.png"), RGBA; null if it is not there or not a picture
+static func load_crosshair_png(dir: String, name: String) -> Image:
+	var n := name.strip_edges().replace("\\", "/")
+	if n == "" or n.contains("..") or n.begins_with("/") or n.contains(":") or n.get_extension().to_lower() != "png":
+		return null
+	var path := dir + n
+	if not FileAccess.file_exists(path):
+		return null
+	var img := Image.load_from_file(path)
+	if img == null or img.is_empty() or img.get_width() > 2048 or img.get_height() > 2048:
+		return null
+	img.convert(Image.FORMAT_RGBA8)
+	return img
+
+
 static func load_font_png(path: String, w: int, h: int) -> Image:
 	if not FileAccess.file_exists(path):
 		return null
@@ -801,6 +864,11 @@ func _process(delta: float) -> void:
 		return
 	_track(delta)
 	_sync_overlay()
+	# analog400mw's degrade_span can change while the game runs (mod_settings)
+	_t_span += delta
+	if _t_span >= 1.0:
+		_t_span = 0.0
+		_read_span()
 	_t_draw += delta
 	if _t_draw >= 1.0 / float(_rate()):
 		_t_draw = 0.0
@@ -867,6 +935,9 @@ func _attach() -> void:
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
 	_overlay = null
+	if _xlayer != null and is_instance_valid(_xlayer):
+		_xlayer.queue_free()
+	_xlayer = null
 	_pp = null
 	_player = null
 	_game_box = null
@@ -892,15 +963,21 @@ func _attach() -> void:
 	var parent := _pp.get_parent()
 	parent.add_child(_overlay)
 	parent.move_child(_overlay, _pp.get_index())
-	var m = _pp.material
-	if m is ShaderMaterial and m.shader != null:
-		var d = RenderingServer.shader_get_parameter_default(m.shader.get_rid(), "degrade_span")
-		if d != null:
-			_span = maxf(float(d), 1.0)
+	_read_span()
 	_have_pos = false
 	_g_have = false
 	stats_visible = false
 	_new_pack()
+
+
+# How far below 100 the link quality goes before the picture is gone: the
+# game's shader's degrade_span (analog400mw tunes it)
+func _read_span() -> void:
+	var m = _pp.material if _pp != null and is_instance_valid(_pp) else null
+	if m is ShaderMaterial and m.shader != null:
+		var d = RenderingServer.shader_get_parameter_default(m.shader.get_rid(), "degrade_span")
+		if d != null:
+			_span = maxf(float(d), 1.0)
 
 
 func _sync_overlay() -> void:
@@ -953,6 +1030,46 @@ func _sync_overlay() -> void:
 	var x0 := (ws.x - w) * 0.5 / maxf(ws.x, 1.0)
 	_pic = Vector4(x0, 0.0, 1.0 - x0, 1.0)
 	om.set_shader_parameter("pic", _pic)
+	_sync_xlayer(ws)
+
+
+# crosshair="image": the PNG on its own layer, just over the OSD's and under
+# the post-process (so the video look and the lens take it too), at the
+# screen's resolution, in its own colours, see-through where the PNG is. At
+# crosshair_size 1.0 it is as many pixels tall as the PNG on a 1080p picture.
+func _sync_xlayer(ws: Vector2) -> void:
+	if _ximg == null or not _overlay.visible or not _xhair_drawn:
+		if _xlayer != null and is_instance_valid(_xlayer):
+			_xlayer.visible = false
+		return
+	if _xlayer == null or not is_instance_valid(_xlayer):
+		var sh = load(_dir + "osd_crosshair.gdshader")
+		if not (sh is Shader):
+			return
+		var mat := ShaderMaterial.new()
+		mat.shader = sh
+		_xlayer = ColorRect.new()
+		_xlayer.name = "OSDCrosshair"
+		_xlayer.material = mat
+		_xlayer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var parent := _pp.get_parent()
+		parent.add_child(_xlayer)
+		parent.move_child(_xlayer, _pp.get_index())
+	_xlayer.visible = true
+	_xlayer.global_position = Vector2.ZERO
+	_xlayer.size = ws
+	var m := _xlayer.material as ShaderMaterial
+	m.set_shader_parameter("xhair_tex", _ximg)
+	m.set_shader_parameter("fisheye_strength", _fe_k)
+	m.set_shader_parameter("fisheye_crop", _fe_crop)
+	m.set_shader_parameter("pic", _pic)
+	var pic_w := maxf((_pic.z - _pic.x) * ws.x, 1.0)
+	var pic_h := maxf(ws.y, 1.0)
+	var k := clampf(float(cfg["crosshair_size"]), 0.1, 8.0) * pic_h / 1080.0
+	m.set_shader_parameter("half_size", Vector2(_ximg_size.x * k * 0.5 / pic_w, _ximg_size.y * k * 0.5 / pic_h))
+	var cy := OSD_GRID.y + (OSD_GRID.w - OSD_GRID.y) * float(_cross_y()) / float(ROWS * GH)
+	m.set_shader_parameter("centre", Vector2(0.5, cy))
+	m.set_shader_parameter("opacity", clampf(float(cfg["crosshair_opacity"]), 0.0, 1.0))
 
 
 func _track(delta: float) -> void:
@@ -1012,6 +1129,7 @@ func _track(delta: float) -> void:
 			_rc_db = target
 			_rc_have = true
 		_rc_db += (target - _rc_db) * clampf(delta / 0.4, 0.0, 1.0)
+	_check_vehicle()
 	var thr := _throttle()
 	_battery(delta, thr, armed)
 	_battery_filter(delta)
@@ -1064,11 +1182,11 @@ func _new_pack() -> void:
 
 
 func _cell_count() -> int:
-	return clampi(int(cfg["battery_cells"]), 1, 8)
+	return clampi(int(_bat("battery_cells")), 1, 8)
 
 
 func _ocv(soc: float) -> float:
-	var curve: Array = LIHV if bool(cfg["battery_lihv"]) else LIPO
+	var curve: Array = LIHV if bool(_bat("battery_lihv")) else LIPO
 	for i in range(1, curve.size()):
 		if soc <= curve[i][0]:
 			var a = curve[i - 1]
@@ -1087,13 +1205,13 @@ func _battery(dt: float, thr: float, armed: bool) -> void:
 		_mah = float(prov.get("mah_used", _mah))
 		_amps = float(prov.get("current", 0.0))
 		_shown_cells = clampi(int(prov.get("cells", _cell_count())), 1, 8)
-		_shown_lihv = bool(prov.get("lihv", cfg["battery_lihv"]))
+		_shown_lihv = bool(prov.get("lihv", _bat("battery_lihv")))
 		_capacity = float(prov.get("capacity_mah", 0.0))
 		return
 	var n := _cell_count()
 	_shown_cells = n
-	_shown_lihv = bool(cfg["battery_lihv"])
-	var cap := maxf(float(cfg["battery_mah"]), 50.0) / 1000.0
+	_shown_lihv = bool(_bat("battery_lihv"))
+	var cap := maxf(float(_bat("battery_mah")), 50.0) / 1000.0
 	_capacity = cap * 1000.0
 	var amps := 2.0 / maxf(_v * n, 1.0)          # flight controller and VTX, ~2 W
 	if armed:
@@ -1105,6 +1223,48 @@ func _battery(dt: float, thr: float, armed: bool) -> void:
 	_vp += (amps * r_cell * 0.27 - _vp) * clampf(dt / 3.0, 0.0, 1.0)
 	var target := _ocv(soc) - amps * r_cell - _vp
 	_v += (target - _v) * clampf(dt * 8.0, 0.0, 1.0)
+
+
+# The drone chosen in the game's menu. A drone another mod adds (the drones mod)
+# may bring its own craft name and battery; a different drone gets a fresh
+# pack, as battery_sag gives it one.
+func _check_vehicle() -> void:
+	var gs := get_node_or_null("/root/ZGamestate")
+	var v = gs.get("selected_vehicle_id") if gs != null else null
+	var vid := str(v) if v != null else ""
+	if vid == _vid:
+		return
+	_vid = vid
+	_preset = vehicle_info(vid)
+	_new_pack()
+
+
+## A drone from another mod (a zm_vehicle(id) method: the drones mod), or {}:
+## name, base, craft_name, battery (capacity_mah, cells, lihv - those it sets).
+func vehicle_info(id: String) -> Dictionary:
+	if id == "" or _core == null or not _core.has_method("get_mods"):
+		return {}
+	for m in _core.call("get_mods"):
+		if m != get_parent() and is_instance_valid(m) and m.has_method("zm_vehicle"):
+			var d = m.call("zm_vehicle", id)
+			if d is Dictionary and not d.is_empty():
+				return d
+	return {}
+
+
+# A battery setting for the display-only pack: the drone's own (the drones mod)
+# if it sets it, otherwise settings.cfg's.
+func _bat(key: String):
+	var b = _preset.get("battery", {})
+	var k: String = {"battery_mah": "capacity_mah", "battery_cells": "cells", "battery_lihv": "lihv"}[key]
+	return b[k] if b is Dictionary and b.has(k) else cfg[key]
+
+
+# The drone's own craft name (the drones mod) if it has one, otherwise
+# settings.cfg's.
+func _craft_name() -> String:
+	var c := str(_preset.get("craft_name", ""))
+	return c if c != "" else str(cfg["craft_name"])
 
 
 ## The first loaded mod that reports a battery, or {}.
@@ -1461,9 +1621,9 @@ func _totals_path() -> String:
 	return OS.get_executable_path().get_base_dir().path_join(_dir.trim_prefix("res://").path_join("totals.cfg"))
 
 
+# Read whether they are shown or not, so that one turned on while the game
+# runs (mod_settings) adds to what is saved rather than starting it again
 func _load_totals() -> void:
-	if not _wants_totals():
-		return
 	var c := ConfigFile.new()
 	if c.load(_totals_path()) == OK:
 		for k in _totals:
@@ -1691,8 +1851,9 @@ func _compose() -> void:
 		var vt := ("%.2f" % volts) if volts < 9.995 else ("%.1f" % minf(volts, 99.9))
 		_text(2, 12, vt)
 		_sym(2 + vt.length(), 12, SYM_VOLT)
-	if str(cfg["craft_name"]) != "":
-		_center(12, str(cfg["craft_name"]).left(15))
+	var craft := _craft_name()
+	if craft != "":
+		_center(12, craft.left(15))
 	if cfg["show_mah"] and (blink or not _over_cap()):
 		_text(24, 12, "%4d" % mini(int(_mah), 9999))
 		_sym(28, 12, SYM_MAH)
@@ -2830,6 +2991,7 @@ func _vscale(v: int, rng: int, halign: int, x: int, y: int, height: int, mintick
 
 func _draw_cells(with_over: bool) -> void:
 	_img.fill(Color(0, 0, 0, 0))
+	_xhair_drawn = with_over
 	lines.clear()
 	for r in ROWS:
 		var s := ""
@@ -2854,6 +3016,8 @@ func _draw_cells(with_over: bool) -> void:
 			var at := Vector2i(CX - _xhair.get_width() / 2, _cross_y() - _xhair.get_height() / 2)
 			_img.blend_rect(_xhair, Rect2i(Vector2i.ZERO, _xhair.get_size()), at)
 			extras.append(["crosshair", 0, at.x, at.y])
+		elif _ximg != null:
+			extras.append(["crosshair", 0, CX, _cross_y()])
 		for o in _over_late:
 			var code: int = o[0]
 			_img.blend_rect(o[4], Rect2i((code % 16) * GW, (code / 16) * GH, GW, GH), Vector2i(o[1], o[2]))
@@ -2872,6 +3036,8 @@ func _draw_cells(with_over: bool) -> void:
 func _exit_tree() -> void:
 	if _overlay != null and is_instance_valid(_overlay):
 		_overlay.queue_free()
+	if _xlayer != null and is_instance_valid(_xlayer):
+		_xlayer.queue_free()
 	if _game_box != null and is_instance_valid(_game_box):
 		_game_box.modulate.a = 1.0
 	if _game_sticks != null and is_instance_valid(_game_sticks):

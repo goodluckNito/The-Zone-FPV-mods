@@ -1,4 +1,4 @@
-fpv_osd 1.1
+fpv_osd 1.2
 =================
 
 A Betaflight-style OSD for The Zone FPV - link quality, flight timer, battery,
@@ -62,7 +62,7 @@ BETAFLIGHT, BRAINFPV, INAV
     sidebars_style    betaflight, inav (can scroll with altitude, speed or
                       distance home)
     crosshair         betaflight, brainfpv, inav and INAV's other seven,
-                      or one of six drawn shapes
+                      one of six drawn shapes, or a .png of your own
     sticks_style      betaflight, brainfpv
 
   QUICKSILVER, a whoop firmware, adds one part: its fuel gauge (see
@@ -117,7 +117,12 @@ BATTERY
   Without it, the readout is for show: a pack that drains and sags with
   throttle - its mAh, cell count and LiHV or LiPo are set in settings.cfg - and
   the quad flies the same whatever it shows. Respawning while disarmed puts in
-  a fresh pack (new_pack_on_respawn changes that).
+  a fresh pack (new_pack_on_respawn changes that), and so does changing
+  drone.
+
+  With the drones mod, an added drone's own battery_mah, battery_cells and
+  battery_lihv are used for that drone in place of settings.cfg's, and its
+  craft_name, if it has one, in place of fpv_osd's.
 
   show_fuel_gauge=true adds QUICKSILVER's fuel gauge after the throttle: the
   voltage with the sag from the throttle added back, so it holds steady
@@ -147,6 +152,15 @@ CROSSHAIR AND HORIZON
   font, so a custom font's own shows), BrainFPV's, one of INAV's, or one of
   six drawn in the OSD's white-with-black-edge style - plus, gap, cross, dot,
   circle, chevron - at a size you choose, and it can be moved up or down.
+  crosshair_opacity makes any of them see-through.
+
+  Your own crosshair: put a .png in fpv_osd/crosshairs, then set
+  crosshair="image" and crosshair_image="crosshairs/yours.png" (or pick it
+  in Pause > Mods > fpv_osd). It shows in its own colours, see-through
+  where the .png is, and is drawn sharp at the screen's resolution rather
+  than on the OSD's grid - still under the video look and the lens, as the
+  OSD is. At crosshair_size 1.0 it is as many pixels tall as the .png on a
+  1080p picture. reticle.png, cross.png and dot.png come with it.
   show_horizon=true adds an artificial horizon, which tilts and moves with
   the quad's roll and pitch, and show_horizon_sidebars=true sidebars.
 

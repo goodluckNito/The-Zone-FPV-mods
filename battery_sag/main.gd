@@ -1,5 +1,5 @@
 extends Node
-## battery_sag 1.0
+## battery_sag 1.1
 ##
 ## A flight pack for The Zone FPV that drains, sags under load and changes how
 ## the quad flies. Loaded by zonemods (override.cfg in the game folder).
@@ -8,7 +8,7 @@ extends Node
 ##
 ## Uninstall: delete the battery_sag folder.
 
-const VERSION := "1.0"
+const VERSION := "1.1"
 const DIR := "res://battery_sag/"
 
 var _battery: Node = null
@@ -26,6 +26,22 @@ func zm_init(_core: Node, _dir: String) -> void:
 	else:
 		_say("could not load battery.gd")
 	_write_status()
+
+
+## Called by mod_settings when settings.cfg has been changed in the game
+func zm_apply_settings() -> void:
+	if _battery != null and is_instance_valid(_battery):
+		_say(_battery.reload(DIR))
+		_write_status()
+
+
+## The drones mod changed a drone it adds (its block, changed in the game):
+## if that drone is flying, its pack flies on with the new battery settings,
+## keeping what it has used so far
+func zm_vehicle_changed(id: String) -> void:
+	if _battery != null and is_instance_valid(_battery) and str(_battery.get("pack_id")) == id:
+		_say(_battery.reload(DIR))
+		_write_status()
 
 
 ## The pack, for an OSD: cell_voltage (volts a cell under load), mah_used,

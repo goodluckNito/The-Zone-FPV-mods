@@ -26,7 +26,8 @@ extends Node
 ##
 ## Packs: each of the game's quads gets a pack of its own (PACKS, and a
 ## section of settings.cfg per quad), picked from the quad you have selected
-## and swapped in fresh when you change quad.
+## and swapped in fresh when you change quad. A drone added by the drones mod
+## gets the battery its block sets, the rest from its base quad's pack.
 
 const DEFAULTS := {
 	"sag_effect": 1.0,
@@ -132,15 +133,39 @@ func setup(dir: String) -> String:
 	return "battery: a pack for each quad - " + ", ".join(parts) + "; sag_effect %s" % str(cfg["sag_effect"])
 
 
+## Settings changed while the game runs: the same pack flies on with them,
+## keeping what it has used so far
+func reload(dir: String) -> String:
+	# cell_voltage too: paused (the pause menu's Mods page) nothing works it
+	# out again until the game goes on, and the OSD shows it meanwhile
+	var keep := [mah_used, current, _vf, _vs, _vk, cell_voltage]
+	var id := pack_id
+	var line := setup(dir)
+	if id != "":
+		use_pack(id)
+	mah_used = keep[0]
+	current = keep[1]
+	_vf = keep[2]
+	_vs = keep[3]
+	_vk = keep[4]
+	cell_voltage = keep[5]
+	return line
+
+
 ## "4S 850 mAh LiPo"
 static func describe(p: Dictionary) -> String:
 	return "%dS %d mAh %s" % [clampi(int(p["cells"]), 1, 8), int(p["capacity_mah"]), "LiHV" if bool(p["lihv"]) else "LiPo"]
 
 
-## Puts in a fresh pack of the kind for this vehicle id (or "other").
+## Puts in a fresh pack of the kind for this vehicle id: the game drone's, a
+## drone the drones mod adds, or "other".
 func use_pack(vehicle_id: String) -> void:
 	pack_id = vehicle_id
-	pack = packs.get(vehicle_id, packs["other"])
+	pack = packs.get(vehicle_id, {})
+	if pack.is_empty():
+		pack = _preset_pack(vehicle_id)
+	if pack.is_empty():
+		pack = packs["other"]
 	var mohm := float(pack["resistance_mohm"])
 	if mohm <= 0.0:
 		# about 20 mOhm for a 550 mAh whoop cell and its lead; bigger packs of
@@ -149,6 +174,32 @@ func use_pack(vehicle_id: String) -> void:
 		mohm = 11000.0 / cap if int(pack["cells"]) <= 2 else 5000.0 / cap + 0.5
 	_r0 = mohm / 1000.0
 	new_pack()
+
+
+## A drone another mod adds (the drones mod, through zm_vehicle): the battery
+## its block sets, and for anything it leaves out the pack of the game drone
+## it is built on. {} for any other id.
+func _preset_pack(vehicle_id: String) -> Dictionary:
+	if vehicle_id == "" or not is_inside_tree():
+		return {}
+	var zm := get_node_or_null("/root/ZoneMods")
+	if zm == null or not zm.has_method("get_mods"):
+		return {}
+	for m in zm.call("get_mods"):
+		if not is_instance_valid(m) or not m.has_method("zm_vehicle"):
+			continue
+		var v = m.call("zm_vehicle", vehicle_id)
+		if not (v is Dictionary) or v.is_empty():
+			continue
+		var p: Dictionary = (packs.get(str(v.get("base", "")), packs["other"]) as Dictionary).duplicate()
+		var bat = v.get("battery", {})
+		if bat is Dictionary:
+			for k in bat:
+				if p.has(k):
+					p[k] = bat[k]
+		p["name"] = str(v.get("name", vehicle_id))
+		return p
+	return {}
 
 
 ## A fresh pack for this quad, and a line in status.txt saying which.

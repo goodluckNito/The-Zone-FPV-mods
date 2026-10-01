@@ -1,5 +1,5 @@
 extends Node
-## pilot_audio 1.0
+## pilot_audio 1.1
 ##
 ## Hear the quad from where the pilot stands: loudness, tone, delay, doppler
 ## and stereo by distance and direction from the spawn point, and optionally
@@ -8,7 +8,7 @@ extends Node
 ##
 ## Uninstall: delete the pilot_audio folder.
 
-const VERSION := "1.0"
+const VERSION := "1.1"
 const DIR := "res://pilot_audio/"
 
 var _audio: Node = null
@@ -32,6 +32,13 @@ func zm_init(_core: Node, _dir: String) -> void:
 ## cutoff_hz, pan, pitch, doppler, delay, walls, playing, remote.
 func zm_audio() -> Array:
 	return _audio.report() if _audio != null and is_instance_valid(_audio) and _audio.has_method("report") else []
+
+
+## Called by mod_settings when settings.cfg has been changed in the game
+func zm_apply_settings() -> void:
+	if _audio != null and is_instance_valid(_audio):
+		_say(_audio.setup(DIR))
+		_write_status()
 
 
 func _say(s: String) -> void:
