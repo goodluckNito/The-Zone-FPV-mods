@@ -40,7 +40,7 @@ If you reconnect the radio mid-session, it does this again.
 A gamepad set up so the resting stick already means zero throttle is left alone.
 
 ## examples/glb_anim
-Basic mod that plays and loobs animations within a .glb file/map. It's an example mod, but it does allow for dynamic maps with moving parts and colliders.
+Basic mod that plays and loops animations within a .glb file/map. It's an example mod, but it does allow for dynamic maps with moving parts and colliders.
 
 ## zonemods
 
