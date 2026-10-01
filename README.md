@@ -46,6 +46,9 @@ Basic mod that plays and loops animations within a .glb file/map. It's an exampl
 
 lets you edit settings in-game (pause menu and F9 key by default)
 
+![Mod settings](modsettings1.png)
+![Mod settings](modsettings2.png)
+
 ## Rotor Drag
 
 simulates rotor drag. Props draw air in and throw it out. Force grows with the speed itself.
