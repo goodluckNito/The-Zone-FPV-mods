@@ -42,6 +42,26 @@ A gamepad set up so the resting stick already means zero throttle is left alone.
 ## examples/glb_anim
 Basic mod that plays and loops animations within a .glb file/map. It's an example mod, but it does allow for dynamic maps with moving parts and colliders.
 
+## Mod settings
+
+lets you edit settings in-game (pause menu and F9 key by default)
+
+## Rotor Drag
+
+simulates rotor drag. Props draw air in and throw it out. Force grows with the speed itself.
+
+## Drones
+
+All drone settings that interface with other mods. Allows you to create custom Drone presets with their own name, weight, thrust, top speed, drag on each axis, rotation/turtle torque, camera angle/fov/fisheye, prop size, motor and motor sound, battery and OSD craft name
+
+## Dirty Air 
+
+Cause you to leave air behind, lasting a second or two and spreading. Floor gives more thrust under the props and ceiling pulls the props up.
+
+## Flight controller
+
+Each motor gets its own torque rather than them all getting idealized torque. Define Betaflight PIDs for motors, airmode option, and more
+
 ## zonemods
 
 This is the mod loader that my other mods rely on.
