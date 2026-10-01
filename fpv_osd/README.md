@@ -1,13 +1,14 @@
-fpv_osd 1.0.1
+fpv_osd 1.2
 =================
 
 A Betaflight-style OSD for The Zone FPV - link quality, flight timer, battery,
-mAh, current, warnings and craft name - in a real Betaflight font, or as a
-BrainFPV RADIX draws it, with its graphical extras. It is drawn
-into the picture before the game's video effect, so with an analog mode on
-(analog400mw's, or the game's own) it blurs and breaks up with the video like
-an OSD added on the quad. It works on its own or alongside analog400mw and
-battery_sag.
+mAh, current, warnings and craft name - in a real Betaflight font, with the
+horizon, sidebars, crosshair and stick overlay each drawn as Betaflight,
+BrainFPV or INAV draws it, mixed as you like, INAV's HUD, vario and more, and
+QUICKSILVER's fuel gauge. It is drawn into the picture before the game's video
+effect, so with an analog mode on (analog400mw's, or the game's own) it blurs
+and breaks up with the video like an OSD added on the quad. It works on its
+own or alongside analog400mw and battery_sag.
 
 
 INSTALL
@@ -47,17 +48,61 @@ FONTS
   Betaflight Configurator's font manager, the font on your own quad, or any
   other .mcm - put it in fpv_osd/fonts and set font= to its file name.
 
+  INAV's parts use INAV's own characters, from INAV's default font (included;
+  inav_font= takes any of INAV Configurator's analogue fonts).
 
-BRAINFPV
-  style="brainfpv" makes it a BrainFPV RADIX's OSD, from BrainFPV's own
-  open-source Betaflight: the same text, but the whole OSD redrawn 30 times a
-  second (every other video field) instead of about 15, with BrainFPV's
-  drawn crosshair (crosshair="betaflight" or "brainfpv"), its pitch ladder in
-  place of Betaflight's horizon line (show_horizon=true), and, if you turn
-  them on, its altitude and speed scales down the sides. BrainFPV's own
-  pixel-drawing code is followed pixel for pixel, black and white as it
-  draws them. For its look without the extras - its crosshair and
-  30-times-a-second drawing only - leave show_horizon and the scales off.
+
+BETAFLIGHT, BRAINFPV, INAV
+  style= sets whose OSD it is: "betaflight" (a Betaflight OSD chip, about 15
+  redraws a second) or "brainfpv" (a BrainFPV RADIX running Betaflight: the
+  same text, but redrawn 30 times a second, every other video field). Each
+  part then has its own setting, and "auto" means style's own version:
+
+    horizon_style     betaflight, brainfpv (its pitch ladder), inav
+    sidebars_style    betaflight, inav (can scroll with altitude, speed or
+                      distance home)
+    crosshair         betaflight, brainfpv, inav and INAV's other seven,
+                      one of six drawn shapes, or a .png of your own
+    sticks_style      betaflight, brainfpv
+
+  QUICKSILVER, a whoop firmware, adds one part: its fuel gauge (see
+  BATTERY). Betaflight's flip arrow and up/down marker are there too (see
+  FLIP ARROW AND UP/DOWN).
+
+  So BrainFPV's sticks with Betaflight's horizon is sticks_style="brainfpv"
+  and horizon_style="betaflight". BrainFPV's altitude and speed scales can
+  be turned on with any style; any of BrainFPV's drawn parts makes the OSD
+  redraw 30 times a second. BrainFPV's pixel-drawing code is followed pixel
+  for pixel, and Betaflight's and INAV's parts use the same characters in
+  the same places as theirs.
+
+
+INAV
+  INAV's analog OSD draws its horizon with the same line characters as
+  Betaflight's, so level they look alike. Its line is 11 characters wide to
+  Betaflight's 9, it turns to upright characters past 45 degrees of bank
+  where Betaflight's breaks up, it can show one pitch rung at a time
+  (horizon_pitch_interval), and with horizon_uptilt it takes the camera's
+  tilt off its pitch as INAV does - so hovering with a lot of uptilt it sits
+  low, or off the bottom, until you tip forward. Its sidebars can scroll like
+  tapes, with arrows for which way.
+
+  Its HUD marks home with an H where it is in the picture and its distance
+  under it (hud_homepoint), puts arrows round the crosshair pointing home
+  (hud_homing), and shows other players' quads as INAV shows other aircraft
+  from its radar: A to D for the nearest (hud_radar), each with which way it
+  is heading and its height and distance. Off the edge of the picture, a
+  marker goes to the side it is round, with arrows.
+
+  Also: its vario (climb and sink arrows) and vertical speed, its g-force
+  readout and its throttle gauge.
+
+
+COMPASS AND HOME
+  show_compass=true puts a compass along the top, the way the quad faces in
+  the middle; north is the game world's -z. show_home=true adds Betaflight's
+  home arrow and distance. Home is the spawn point, and moves the moment you
+  move the spawn with S or X; the HUD's H follows it too.
 
 
 BATTERY
@@ -72,7 +117,21 @@ BATTERY
   Without it, the readout is for show: a pack that drains and sags with
   throttle - its mAh, cell count and LiHV or LiPo are set in settings.cfg - and
   the quad flies the same whatever it shows. Respawning while disarmed puts in
-  a fresh pack (new_pack_on_respawn changes that).
+  a fresh pack (new_pack_on_respawn changes that), and so does changing
+  drone.
+
+  With the drones mod, an added drone's own battery_mah, battery_cells and
+  battery_lihv are used for that drone in place of settings.cfg's, and its
+  craft_name, if it has one, in place of fpv_osd's.
+
+  show_fuel_gauge=true adds QUICKSILVER's fuel gauge after the throttle: the
+  voltage with the sag from the throttle added back, so it holds steady
+  through a punch and falls only as the pack drains - how much is left,
+  where Betaflight's voltage is how hard you are working the pack. As on
+  QUICKSILVER it learns how much the pack sags while you fly, above 10%
+  throttle; for about the first half minute it reads close to the voltage
+  shown. It learns up to 1.2 V of sag at full throttle, as QUICKSILVER does -
+  plenty for a whoop or a toothpick, short of what a big pack sags.
 
   The flight timer restarts on every respawn.
 
@@ -90,19 +149,39 @@ STICK OVERLAY
 
 CROSSHAIR AND HORIZON
   Both off by default. crosshair= picks Betaflight's crosshair (from the
-  font, so a custom font's own shows), BrainFPV's, or one of six drawn in the
-  OSD's white-with-black-edge style - plus, gap, cross, dot, circle, chevron -
-  at a size you choose, and it can be moved up or down. show_horizon=true
-  adds Betaflight's artificial horizon, which tilts and moves with the quad's
-  roll and pitch (BrainFPV's pitch ladder with style="brainfpv"), and
-  show_horizon_sidebars=true its sidebars.
+  font, so a custom font's own shows), BrainFPV's, one of INAV's, or one of
+  six drawn in the OSD's white-with-black-edge style - plus, gap, cross, dot,
+  circle, chevron - at a size you choose, and it can be moved up or down.
+  crosshair_opacity makes any of them see-through.
 
-  Like Betaflight's, the horizon shows the quad's attitude and knows nothing
-  of the camera's uptilt, so hovering level it sits above the real horizon.
-  horizon_uptilt=true puts it on the real horizon instead, as INAV can: the
-  camera's tilt and field of view are read from the quad you fly, so every
-  preset lines up. With style="brainfpv" and horizon_steps=0 that is a
-  single thin line on the horizon.
+  Your own crosshair: put a .png in fpv_osd/crosshairs, then set
+  crosshair="image" and crosshair_image="crosshairs/yours.png" (or pick it
+  in Pause > Mods > fpv_osd). It shows in its own colours, see-through
+  where the .png is, and is drawn sharp at the screen's resolution rather
+  than on the OSD's grid - still under the video look and the lens, as the
+  OSD is. At crosshair_size 1.0 it is as many pixels tall as the .png on a
+  1080p picture. reticle.png, cross.png and dot.png come with it.
+  show_horizon=true adds an artificial horizon, which tilts and moves with
+  the quad's roll and pitch, and show_horizon_sidebars=true sidebars.
+
+  As on the real firmware, the horizon shows the quad's attitude and knows
+  nothing of the camera's uptilt, so hovering level it sits above the real
+  horizon. horizon_uptilt=true allows for it: the camera's tilt and field of
+  view are read from the quad you fly, so every preset lines up. Betaflight's
+  and BrainFPV's then go on the real horizon; INAV's takes the uptilt off its
+  pitch, as INAV does. BrainFPV's with horizon_steps=0 is a single thin line
+  on the horizon.
+
+
+FLIP ARROW AND UP/DOWN
+  Betaflight's, both off by default. show_flip_arrow=true puts an arrow
+  above the warnings, pointing the way to flip the quad back over, while the
+  game's turtle mode is on or while you are disarmed and more than 25
+  degrees off level. show_up_down=true shows a U or a D where straight up or
+  down is, while the nose points within about 25 degrees of it - climbing or
+  diving vertically: on the crosshair when it is dead ahead, off it the way it
+  lies. Betaflight goes by the quad, so with a tilted camera it is off by the
+  tilt; with horizon_uptilt=true it goes by the camera.
 
 
 BATTERY WARNINGS
@@ -113,6 +192,11 @@ BATTERY WARNINGS
   levels, make the voltage stay low for a while before they come up, add a
   LOW BATTERY by percentage of the pack left, an OVER CAP warning at a set
   mAh, and a timer that blinks after a set number of minutes.
+
+  warnings_use_fuel_gauge=true has them read the fuel gauge instead, as
+  QUICKSILVER's low-battery warning does (at 3.60 V a cell there): punches
+  then do not set them off, and a pack that is really low still does. Until
+  the gauge has learnt the pack's sag they behave as on the voltage shown.
 
 
 POST-FLIGHT STATS
