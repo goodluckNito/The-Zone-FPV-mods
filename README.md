@@ -44,7 +44,7 @@ Basic mod that plays and loops animations within a .glb file/map. It's an exampl
 
 ## Mod settings
 
-lets you edit settings in-game (pause menu and F9 key by default)
+lets you edit settings in-game (adds a Mods button to pause menu, or overlay with F9 key by default)
 
 ![Mod settings](modsettings1.png)
 ![Mod settings](modsettings2.png)
