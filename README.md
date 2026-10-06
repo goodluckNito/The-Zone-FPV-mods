@@ -15,6 +15,8 @@ simulates 400mw analog signal quality
 
 ## battery_sag
 
+LATEST: nils vo confirmed the sim gives drones power assuming a ~3.6v sagged battery. This mod has been updated to account for that, so a fresh pack will initially give you more power than you're used to, before sagging down to normal levels, then dropping below.
+
 Lets you define a virtual battery to a drone preset, batteries will drain during use based on throttle or idle amperage. Recommend to use with fpv_osd mod as it'll show your battery stats.
 
 The default method to equip a fresh battery is to DISARM and RESET. This will also take into consideration if you move your spawn point with S. You can configure the fresh pack behavior in settings.cfg
