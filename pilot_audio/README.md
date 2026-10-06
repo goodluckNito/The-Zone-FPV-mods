@@ -1,4 +1,4 @@
-pilot_audio 1.0
+pilot_audio 1.1
 =================
 
 Hear the quad from where you stand. The Zone FPV plays the motor sound as if
