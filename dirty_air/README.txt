@@ -1,4 +1,4 @@
-dirty_air 1.0
+dirty_air 1.1
 ==================
 
 Flying into your own dirty air, and near floors and ceilings. The Zone FPV
@@ -17,39 +17,45 @@ FALLING INTO YOUR OWN WAKE
 
     falling at        thrust         what happens
     half wake speed   +4%            the props bite into rising air
-    0.75-1.8x         down to -30%   the props sit in their own wake (the
-                                     vortex ring state): thrust drops, each
-                                     prop's comes and goes by up to 17%, and
-                                     the ring round the whole quad lifts one
-                                     side more than the other - prop wash
+    half to 1.7x      down to -30%   the props sit in their own wake (the
+    (worst at 1.1x)                  vortex ring state): thrust drops, each
+                                     prop's comes and goes by up to 17% in
+                                     ducts or 30% in the open, and the ring
+                                     round the whole quad lifts one side
+                                     more than the other - prop wash
     2x and more       up to +50%     falling clear through it
 
   The thrust figures are measured on small props at constant rpm (Veismann
-  et al. 2023, the Leishman descent curve). Moving across the wake at its
-  own speed or more clears it, as flying forward out of a dive does.
+  et al. 2023, the Leishman descent curve), worst there at 1.2-1.3x and
+  over a narrower band; a quad flying, its props changing speed, meets it
+  sooner and over a wider one, so here it starts at about half the wake
+  speed (as in Propwash FPV's model). Props in the open fluctuate more than
+  props in ducts, which steady the air through them. Moving across the wake
+  at its own speed or more clears it, as flying forward out of a dive does.
 
   Because the wake speed follows the throttle, a punch out of a fall sweeps
   right through the worst of it - the classic prop-wash moment. Falling
-  slowly at hover throttle, a 65mm Whoop meets it at about 4.6-11 m/s; at
-  low throttle, much sooner.
+  slowly at hover throttle, a 65mm Whoop meets it from about 3 m/s, worst
+  at about 7; at low throttle, much sooner.
 
   On a real quad the prop-wash shake is the flight controller and motors
   fighting that uneven thrust. With the flight_controller mod on, that is
   what happens here too: each prop's thrust comes and goes on its own, and
   the flight controller's corrections, through motors that take time to
-  respond, shake the quad. The game's own attitude control is idealised and
+  respond, shake the quad - and its gyro reads noisier in the rough air, so
+  the motors jitter on top. The game's own attitude control is idealised and
   shrugs it off, so without flight_controller you feel the lift come and
   go, but little shake.
 
   How much it shakes: held in the ring state, a 5" on its stock tune
-  jitters about 20 degrees a second back and forth (a third of a degree)
-  and rocks by a degree or two - small, as on a well-tuned quad; you notice
-  the sinking more. It is at its worst dropping straight down at around
-  hover throttle, at 0.75-1.8x the wake speed (status.txt gives it for each
-  drone). Punching hard sweeps through it in a few hundredths of a second.
-  The fluctuation measured on small props is the gentle end of what has
-  been measured: wash= in settings.cfg scales it - at 2, about 40 degrees a
-  second and a few degrees of rocking; at 3, more. An added, hand-sized
+  jitters about 40 degrees a second back and forth (two thirds of a
+  degree), a whoop about 25, and both rock by a degree or two - small, as
+  on a well-tuned quad; you notice the sinking more. It is at its worst
+  dropping straight down at around hover throttle, at about 1.1x the wake
+  speed (status.txt gives it for each drone). Punching hard sweeps through
+  it in a few hundredths of a second. wash= in settings.cfg scales it - at
+  2, a 5" jitters about 90 degrees a second, a whoop about 60, and rocks a
+  few degrees; at 3, more. An added, hand-sized
   jitter is also there as shake=, off by default.
 
 
@@ -103,11 +109,18 @@ SETTINGS
   fluctuation both; wake the air left behind; wash how much each prop's
   thrust comes and goes in either, leaving the lift lost as it is.
 
-  Each drone's prop size, ducts and motor-to-motor distance are in
-  drones/settings.cfg, which comes with this mod and is shared with
-  rotor_drag, motor_response and flight_controller, so each is set once. A
-  drone added by the drones mod sets its own with prop_mm=, ducted= and
-  wheelbase_mm= in its block (the Meteor75 Pro II: 46 mm, ducted, 80 mm).
+  wake and wash are for every drone. Each drone also has its own, in
+  drones/settings.cfg (Pause > Mods > drones, picking the drone): the two
+  multiply, so wash=2 on the Meteor with wash=1 here gives the Meteor twice
+  the prop wash and leaves the rest as they are.
+
+  Each drone's prop size, ducts, motor-to-motor distance and own wash and
+  wake are in drones/settings.cfg, which comes with this mod and is shared
+  with rotor_drag, motor_response and flight_controller, so each is set
+  once. A drone added by the drones mod sets its own with prop_mm=,
+  ducted=, wheelbase_mm=, wash= and wake= in its block (the Meteor75 Pro
+  II: 46 mm, ducted, 80 mm); what it leaves out comes from the drone it is
+  built on.
 
 
 MULTIPLAYER AND RACES

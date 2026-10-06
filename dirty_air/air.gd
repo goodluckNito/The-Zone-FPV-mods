@@ -7,10 +7,14 @@ extends Node
 ##   - falling slowly, a little more thrust - momentum theory, with
 ##     Leishman's fit for the air through the props in descent: +4% at half
 ##     the props' hover wake speed vh, +8% at vh, +14% at 1.5 vh
-##   - around 0.75-1.8 vh the props sit in their own wake (the vortex ring
-##     state): measured on small props at constant rpm, thrust drops to about
-##     0.7 of hover at 1.2-1.3 vh and fluctuates by 14-20% (Veismann et al.
-##     2023); flying across the wake at vh or more clears it
+##   - from about half vh to 1.7 vh the props sit in their own wake (the
+##     vortex ring state), deepest at 1.1 vh: thrust drops to about 0.7 of
+##     hover and each prop's fluctuates by 17% (ducted) or 30% (open props) -
+##     measured on small props at constant rpm, 0.7 of hover at 1.2-1.3 vh
+##     and 14-20% (Veismann et al. 2023), but met earlier and over a wider
+##     band by a quad flying, its props' speed changing, than on a test
+##     stand (as in Propwash FPV's model); flying across the wake at vh or
+##     more clears it
 ##   - the fluctuation is each prop's own, so besides a bob it rocks the
 ##     quad; and a quad in its wake shakes (prop wash) as its flight
 ##     controller and motors fight that - the shake is added as a small
@@ -63,10 +67,11 @@ const SPECS_PATH := "res://drones/specs.gd"
 # axis, in units of vh (x = Vz / vh, Vz < 0 descending)
 const DESCENT := [[0.0, 1.0], [-0.5, 1.04], [-1.0, 1.08], [-1.5, 1.14], [-2.0, 1.39], [-2.5, 1.78]]
 const DESCENT_MAX := 1.5
-const VRS_CENTRE := -1.25
-const VRS_WIDTH := 0.3
+const VRS_CENTRE := -1.1
+const VRS_WIDTH := 0.45
 const VRS_LOSS := 0.3           # thrust at the heart of the wake: 0.7 of the mean
-const VRS_SIGMA := 0.17         # each prop's thrust fluctuation there
+const VRS_SIGMA := 0.17         # each prop's thrust fluctuation there, in ducts
+const OPEN_ROUGH := 1.75        # props in the open fluctuate this much more (0.30)
 const VRS_TILT := 0.5           # the part of it that tilts across the quad
 const SHAKE_DEG := 1.5          # rms attitude shake there, at shake=1
 const SHAKE_HZ := 25.0
@@ -100,6 +105,8 @@ var torque := Vector3.ZERO
 var shake_offset := Vector2.ZERO   # the jitter in place (radians, roll and pitch)
 var wake_flow := Vector3.ZERO   # the old wake's air velocity at the quad (m/s)
 var gusts := 0.0                # the thrust fluctuation it gives the props (rms, fraction)
+var wash_level := 0.0           # how rough the air is: 1 = the heart of its wake (flight_controller's gyro)
+var vrs_sigma := 0.0            # each prop's thrust fluctuation in its own wake (rms, fraction)
 var puffs := 0                  # puffs of wake alive
 
 var _core: Node = null
@@ -372,8 +379,8 @@ func _physics_process(dt: float) -> void:
 		use_drone(vid)
 		if get_parent() != null and get_parent().has_method("drone_changed"):
 			var vh := hover_wake(float(body.mass))
-			get_parent().call("drone_changed", "flying %s: %s; its wake at hover %.1f m/s, so prop wash falling at about %.1f-%.1f m/s at hover throttle" % [
-				drone["name"], describe(drone), vh, 0.75 * vh, 1.8 * vh])
+			get_parent().call("drone_changed", "flying %s: %s; its wake at hover %.1f m/s, so prop wash falling at about %.1f-%.1f m/s at hover throttle, worst at %.1f; its own wash %s and wake %s" % [
+				drone["name"], describe(drone), vh, 0.5 * vh, 1.7 * vh, -VRS_CENTRE * vh, str(drone.get("wash", 1.0)), str(drone.get("wake", 1.0))])
 	if dt <= 0.0:
 		return
 	_clock += dt
@@ -387,6 +394,8 @@ func _physics_process(dt: float) -> void:
 		wake = 0.0
 		wake_flow = Vector3.ZERO
 		gusts = 0.0
+		wash_level = 0.0
+		vrs_sigma = 0.0
 		_flying = false
 		_unshake(body)
 		return
@@ -399,7 +408,7 @@ func _physics_process(dt: float) -> void:
 	var vh := sqrt(maxf(thrust, 1e-4) / (2.0 * RHO * _area))
 
 	# the wake left behind, at the quad's centre and each prop
-	var ws := float(cfg["wake"])
+	var ws := float(cfg["wake"]) * float(drone.get("wake", 1.0))
 	var pts: Array[Vector3] = [origin, origin + basis * _local[0], origin + basis * _local[1],
 		origin + basis * _local[2], origin + basis * _local[3]]
 	var old := [0.0, 0.0, 0.0, 0.0, 0.0]
@@ -449,8 +458,10 @@ func _physics_process(dt: float) -> void:
 	var ft := clampf(0.5 * vh / (TAU * _frame), 1.0, 40.0)
 	var kt := minf(dt * TAU * ft, 1.0)
 	_tilt += -_tilt * kt + Vector2(_gauss(), _gauss()) * sqrt(2.0 * kt)
-	var wash := float(cfg["wash"])
-	var sigma := VRS_SIGMA * wake * strength * wash
+	var wash := float(cfg["wash"]) * float(drone.get("wash", 1.0))
+	var rough := 1.0 if bool(drone.get("ducted", true)) else OPEN_ROUGH
+	var sigma := VRS_SIGMA * rough * wake * strength * wash
+	vrs_sigma = sigma
 	# the old wake's gusts: eddies about 0.4 of its half-width, swept through
 	# the props at the speed the air passes them; neighbouring props share
 	# the gusts of eddies bigger than the gap between them
@@ -492,7 +503,7 @@ func _physics_process(dt: float) -> void:
 		# (rocking the quad at the edge of a column), and its gusts
 		var here: Vector3 = odir[i + 1] * old[i + 1] * ws
 		var inflow := clampf(1.0 - slope * (here - wake_flow).dot(-up) / vh, 0.3, 2.0)
-		var sg := minf(slope * WAKE_TURB * edge[i + 1] * ws * wash / vh, 1.0)
+		var sg := minf(slope * WAKE_TURB * edge[i + 1] * ws * wash * rough / vh, 1.0)
 		_gust[i] += -_gust[i] * kg + sqrt(2.0 * kg) * _gauss()
 		gusts += sg * 0.25
 		var gust: float = sg * (sqrt(shared) * _gust_all + sqrt(1.0 - shared) * _gust[i])
@@ -506,6 +517,8 @@ func _physics_process(dt: float) -> void:
 			body.apply_force(f, at - origin)
 			force += f
 			torque += (at - origin).cross(f)
+
+	wash_level = clampf((sigma + gusts) / (VRS_SIGMA * rough), 0.0, 2.0)
 
 	# leave some wake: not while falling along the thrust axis (that wake
 	# stays round the props, and is the vortex ring state above)

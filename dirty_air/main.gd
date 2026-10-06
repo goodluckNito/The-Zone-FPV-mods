@@ -1,5 +1,5 @@
 extends Node
-## dirty_air 1.0
+## dirty_air 1.1
 ##
 ## Dirty air for The Zone FPV: flying into the air the props have already
 ## pushed down (the thrust it takes away, and the shake of prop wash), and
@@ -9,7 +9,7 @@ extends Node
 ##
 ## Uninstall: delete the dirty_air folder.
 
-const VERSION := "1.0"
+const VERSION := "1.1"
 const DIR := "res://dirty_air/"
 
 var _air: Node = null
