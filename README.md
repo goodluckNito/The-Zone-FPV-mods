@@ -27,7 +27,7 @@ OSD simulation, with features from Betaflight, BrainFPV, Quicksilver, and iNav. 
 
 ## pilot_audio
 
-Causes audio to only be heard from the spawn position, with simulated doppler effect for fly-bys and allows for emulating multiplayer drone sounds. This can be kinda scary loading into a popular OG Bando and you may wanna fly somewhere else and change your spawn with S. Only simulates the closest 8 drones to you, you can change how many drones you can hear in the settings.cfg.
+Choose if you want audio to be heard from spawn location or the drone itself, and optionally emulate drone sounds for other players in multiplayer lobbies. Configurable options for falloff, doppler effect, and more. Option for emulated propwash sounds if you have dirty_air enabled.
 
 ## throttle fix
 Throttle Fix addresses the issue with the game initializing the throttle in the middle position until you move your throttle some amount.
