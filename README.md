@@ -55,11 +55,12 @@ lets you edit settings in-game (adds a Mods button to pause menu, or overlay wit
 
 ## Rotor Drag
 
-simulates rotor drag. Props draw air in and throw it out. Force grows with the speed itself.
+simulates rotor drag. Configurable options per drone. Force grows with the speed itself. Removes the physics engine's hidden damping
 
 ![Rotor Drag](rotordrag1.png)
 
 ## Drones
+LATEST: Define propwash per-drone (wash and wake used by dirty_air), option to define rates per drone (off by default)
 
 All drone settings that interface with other mods. Allows you to create custom Drone presets with their own name, weight, thrust, top speed, drag on each axis, rotation/turtle torque, camera angle/fov/fisheye, prop size, motor and motor sound, battery and OSD craft name
 
