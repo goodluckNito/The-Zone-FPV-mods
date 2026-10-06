@@ -1,18 +1,28 @@
-rotor_drag 1.0
+rotor_drag 1.1
 ===============
 
 Adds the drag spinning props put on a quad moving across them, which The
-Zone FPV leaves out. Let go at course speed, a whoop now stops in about
-half the distance it slid before, an open-prop quad in about half to two
-thirds; top speeds hardly change.
+Zone FPV leaves out, and takes off a drag it should not have: the physics
+engine's own damping. Let go at course speed, a whoop now stops in about
+two thirds of the distance it slid before; top speeds hardly change, and
+falls and long coasts carry the weight they should.
 
 
 WHAT IT CHANGES
-  The game slows a quad only with air resistance on its body, which grows
-  with the square of the speed, and a little damping. At the few metres a
-  second of a whoop course that is tiny: the game's 65mm Whoop, flown level
-  at 14 km/h and let go, coasts about 6 m before it is down to half speed,
-  and 13 m before it is nearly stopped.
+  The game slows a quad with air resistance on its body, which grows with
+  the square of the speed, and with the physics engine's damping. At the
+  few metres a second of a whoop course the air resistance is tiny: the
+  game's 65mm Whoop, flown level at 14 km/h and let go, coasts about 6 m
+  before it is down to half speed, and 13 m before it is nearly stopped -
+  and a third of what stops it is the damping.
+
+  That damping is no air at all. Godot, the engine the game is made in,
+  slows every moving body by a tenth of its speed each second (its
+  default_linear_damp, 0.1) unless a game sets it otherwise, and The Zone
+  FPV leaves it: falling, climbing or coasting at any speed, the quad loses
+  10% of its speed a second on top of the air's drag, as if it were lighter
+  than it is. rotor_drag takes it off the quad you fly (engine_damping=0); a 5"
+  falling flat then reaches 72 km/h rather than 65, and coasts further.
 
   A real quad also has rotor drag. Its props draw air in and throw it out
   along their axis, so air arriving across them - the quad moving sideways
@@ -22,18 +32,19 @@ WHAT IT CHANGES
   props move. Ducts turn more of that air along the axis, so a whoop's is
   about twice an open-prop quad's of the same size.
 
-  With rotor_drag, from 14 km/h, flown level and let go (measured in Godot with
-  the game's flight model and physics settings):
+  With rotor_drag - rotor drag on, the engine's damping off - from 14 km/h,
+  flown level and let go (measured in Godot with the game's flight model
+  and physics settings):
 
     quad             half speed after     nearly stopped (2 km/h) after
                      game   rotor_drag    game   rotor_drag
-    65mm Whoop       6.1 m  3.2 m         13 m   6.1 m
-    85mm Whoop       8.5 m  4.2 m         18 m   7.8 m
-    2.5" Freestyle   9.8 m  5.3 m         20 m   9.9 m
-    5" Freestyle     11 m   6.7 m         22 m   12 m
+    65mm Whoop       6.1 m  3.9 m         13 m   7.5 m
+    85mm Whoop       8.5 m  5.4 m         18 m   10 m
+    2.5" Freestyle   9.8 m  7.4 m         20 m   14 m
+    5" Freestyle     11 m   10 m          22 m   20 m
 
   Tilted forward and holding height, a quad settles at a lower speed for
-  the same tilt - the 65mm Whoop at 45 degrees cruises at 27 km/h instead
+  the same tilt - the 65mm Whoop at 45 degrees cruises at 28 km/h instead
   of 31 - so you tilt a little further for the same speed. Flat out, at the
   best tilt, top speeds change by a few percent. Flying forward it also
   needs a touch less throttle to hold height: tilted, the props' drag lies
@@ -61,10 +72,14 @@ HOW IT WORKS OUT THE FORCE
 SETTINGS
   Edit rotor_drag/settings.cfg (made at the first launch), save, restart the game.
 
-  strength scales it all: 0 = none (the game as it is), 1 = the default, 2 =
-  the 1.0 release's (the 65mm Whoop above: half speed after 2.2 m), 4 = the
-  whole ducted-fan momentum drag. If a whoop still slides further than a
-  real one, try 1.3 or 1.5; if it feels heavy and stops short, 0.7.
+  strength scales the rotor drag: 0 = none, 1 = the default, 2 = the 1.0
+  release's (the 65mm Whoop above: half speed after 2.5 m), 4 = the whole
+  ducted-fan momentum drag. If a whoop still slides further than a real
+  one, try 1.3 or 1.5; if it feels heavy and stops short, 0.7.
+
+  engine_damping is the engine's damping on the quad you fly: 0 = none (the
+  default), 0.1 = as the game has it. strength=0 with engine_damping=0.1 is
+  the game exactly as it is.
 
   Each drone's prop size (prop_mm) and whether it has ducts are in
   drones/settings.cfg, which comes with this mod and is shared with
@@ -76,7 +91,9 @@ SETTINGS
 MULTIPLAYER AND RACES
   Only the quad you fly is changed, on your computer; other players see
   where you fly as ever. Like any change to the flight model it changes how
-  fast you get round a race track - it makes a quad slower, not faster.
+  fast you get round a race track: the rotor drag makes a quad slower;
+  without the engine's damping, climbs, falls and long coasts carry a
+  little further.
 
 
 INSTALL

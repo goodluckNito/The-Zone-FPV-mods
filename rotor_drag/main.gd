@@ -1,5 +1,5 @@
 extends Node
-## rotor_drag 1.0
+## rotor_drag 1.1
 ##
 ## Rotor drag for The Zone FPV: the braking force spinning props (and more so
 ## a whoop's ducts) put on a quad moving across them, which the game leaves
@@ -8,7 +8,7 @@ extends Node
 ##
 ## Uninstall: delete the rotor_drag folder.
 
-const VERSION := "1.0"
+const VERSION := "1.1"
 const DIR := "res://rotor_drag/"
 
 var _rotor: Node = null

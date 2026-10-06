@@ -27,13 +27,20 @@ extends Node
 ## RigidBody3D), next to the game's own thrust, drag and wind - not while
 ## disarmed (props stopped), paused or in turtle mode, and never to other
 ## players' quads.
+##
+## It also takes off the physics engine's own damping. Godot slows every
+## moving body by a share of its speed each second - 0.1, its
+## default_linear_damp - unless a game sets it otherwise, and the game
+## leaves it: a drag on the quad that no real one has, on top of the air's.
+## `engine_damping` sets it for the quad flown (0 = none; 0.1 = as the game
+## has it).
 
 const RHO := 1.225
 const ETA_OPEN := 0.17
 const ETA_DUCT := 0.25
 const G := 9.8
 
-const DEFAULTS := {"strength": 1.0}
+const DEFAULTS := {"strength": 1.0, "engine_damping": 0.0}
 
 # each drone's props: drones/settings.cfg, shared with the other mods
 const SPECS_PATH := "res://drones/specs.gd"
@@ -62,10 +69,22 @@ func setup(dir: String, core: Node) -> String:
 			if cfg.has(k):
 				cfg[k] = c.get_value("rotor_drag", k)
 	cfg["strength"] = clampf(float(cfg["strength"]), 0.0, 5.0)
+	cfg["engine_damping"] = clampf(float(cfg["engine_damping"]), 0.0, 1.0)
 	_specs = load(SPECS_PATH) if ResourceLoader.exists(SPECS_PATH) else null
 	if _specs == null:
 		return "not in effect: the drones folder is missing (it comes with this mod: extract the zip again)"
-	return "strength %s; each drone's props from drones/settings.cfg" % str(cfg["strength"])
+	return "strength %s; each drone's props from drones/settings.cfg; the engine's own damping %s a second (the game leaves Godot's 0.1)" % [
+		str(cfg["strength"]), str(cfg["engine_damping"])]
+
+
+# The engine's damping on the quad: engine_damping in place of Godot's
+# default (0.1 a second), set when it differs - a new quad (a respawn, another
+# map) or a change in the game
+func _set_damping(body: RigidBody3D) -> void:
+	var d := float(cfg["engine_damping"])
+	if body.linear_damp_mode != RigidBody3D.DAMP_MODE_REPLACE or not is_equal_approx(body.linear_damp, d):
+		body.linear_damp_mode = RigidBody3D.DAMP_MODE_REPLACE
+		body.linear_damp = d
 
 
 ## "31 mm props in ducts"
@@ -114,6 +133,7 @@ func _physics_process(dt: float) -> void:
 	# wing has a physics_handler of its own)
 	if not (p is RigidBody3D) or p.get("physics_handler") != null or not p.has_method("get_thrust_at_rpm"):
 		return
+	_set_damping(p as RigidBody3D)
 	# the game loads the drone's settings on its first tick of a flight, and
 	# drops them while paused: its thrust cannot be asked for until then
 	if not (p.get("_SETTINGS") is Dictionary):
