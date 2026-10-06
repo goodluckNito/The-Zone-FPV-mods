@@ -19,10 +19,15 @@ extends Node
 ## Handling: the game's quad has a battery voltage that sets how fast its
 ## motors can spin (BAT_CURRENT_VOLTAGE, normally fixed at full). Each physics
 ## tick, before the quad's own, this sets it from the pack's voltage under load
-## against a fresh pack's at the same current. A fresh pack flies exactly as
-## the game is tuned; as it drains and sags the quad needs more throttle to
-## hover and punches weaker, until a flat pack can barely hold it up. The
-## game's own value comes back when the mod is not driving it.
+## against the voltage the game's thrust figures are for: by the game's
+## developer, a pack sagging in flight, about 3.6 V a cell (where a maker's
+## figures are on a bench supply at full charge). So a fresh pack has more
+## than the game's figures - hovers on less throttle, punches harder - the
+## quad flies as the game is tuned about mid-pack, and as the pack drains and
+## sags it needs more throttle to hover and punches weaker, until a flat pack
+## can barely hold it up. thrust_at_cell_volts=0 has a fresh pack fly exactly
+## as the game is tuned instead (1.1). The game's own value comes back when
+## the mod is not driving it.
 ##
 ## Packs: each of the game's quads gets a pack of its own (PACKS, and a
 ## section of settings.cfg per quad), picked from the quad you have selected
@@ -32,6 +37,7 @@ extends Node
 const DEFAULTS := {
 	"sag_effect": 1.0,
 	"sag_compensation": 0.0,
+	"thrust_at_cell_volts": 3.6,
 	"new_pack_on_respawn": "disarmed",
 }
 
@@ -88,7 +94,7 @@ var mah_used := 0.0
 var current := 0.0
 var cell_voltage := 4.33
 var thrust_share := 0.0
-var voltage_scale := 1.0     # what BAT_CURRENT_VOLTAGE was set to, against full
+var voltage_scale := 1.0     # what BAT_CURRENT_VOLTAGE was set to, against the game's
 
 var _r0 := 0.02             # ohms per cell, full pack
 var _vf := 0.0
@@ -130,7 +136,9 @@ func setup(dir: String) -> String:
 	var parts := PackedStringArray()
 	for id in packs:
 		parts.append("%s %s" % [packs[id]["name"], describe(packs[id])])
-	return "battery: a pack for each quad - " + ", ".join(parts) + "; sag_effect %s" % str(cfg["sag_effect"])
+	var ref := float(cfg["thrust_at_cell_volts"])
+	return "battery: a pack for each quad - " + ", ".join(parts) + "; sag_effect %s; the game's thrust at %s" % [str(cfg["sag_effect"]),
+		("%s V a cell" % str(ref)) if ref > 0.0 else "a fresh pack's voltage"]
 
 
 ## Settings changed while the game runs: the same pack flies on with them,
@@ -279,17 +287,25 @@ func amps_for(share: float, armed: bool) -> float:
 	return a
 
 
-## Motor voltage against full: the loaded voltage over a fresh pack's at the
-## same current, then sag_effect and Betaflight-style sag compensation.
+## Motor voltage against the game's: the loaded voltage over the voltage the
+## game's thrust figures are for (thrust_at_cell_volts; 0 = a fresh pack's
+## at the same current), then sag_effect and Betaflight-style sag
+## compensation.
 func motor_scale(throttle: float) -> float:
 	var fresh := ocv(1.0) - current * _r0
-	var k := clampf(cell_voltage / maxf(fresh, 0.5), 0.2, 1.0)
+	var ref := float(cfg["thrust_at_cell_volts"])
+	if ref <= 0.0:
+		ref = fresh
+	ref = maxf(ref, 0.5)
+	var k := clampf(cell_voltage / ref, 0.2, 1.5)
+	var kf := clampf(fresh / ref, 0.2, 1.5)
 	var e := clampf(float(cfg["sag_effect"]), 0.0, 1.0)
 	k = 1.0 - e * (1.0 - k)
+	kf = 1.0 - e * (1.0 - kf)
 	# vbat_sag_compensation: the flight controller turns the motor output up
-	# to make up for sag - but never past 100%
+	# to make up for sag against a fresh pack - but never past 100%
 	var comp := clampf(float(cfg["sag_compensation"]) / 100.0, 0.0, 1.0)
-	return lerpf(k, minf(1.0, k / maxf(throttle, 0.01)), comp)
+	return lerpf(k, maxf(k, minf(kf, k / maxf(throttle, 0.01))), comp)
 
 
 func report() -> Dictionary:

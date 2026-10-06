@@ -1,12 +1,15 @@
-battery_sag 1.1
+battery_sag 1.2
 =====================
 
 A flight pack for The Zone FPV that drains, sags under load and changes how
-the quad flies. A fresh pack flies exactly as the game is tuned. As it drains,
-the voltage under load drops - at once on a punch, and more the longer you
-push - so the quad needs more throttle to hover and punches weaker, and a flat
-pack can barely hold it up. Land, respawn while disarmed - at the map's
-spawn or one you saved with S - and a fresh pack goes in.
+the quad flies. The game's thrust figures are for a pack sagging in flight,
+about 3.6 V a cell (its developer; makers' figures are on a bench supply at
+full charge), so a fresh pack has more: it hovers on less throttle and
+punches harder. As it drains, the voltage under load drops - at once on a
+punch, and more the longer you push - so the quad needs more throttle to
+hover and punches weaker, and a flat pack can barely hold it up. Land,
+respawn while disarmed - at the map's spawn or one you saved with S - and a
+fresh pack goes in.
 
 With fpv_osd installed, the OSD's battery, mAh and current show this pack.
 
@@ -62,9 +65,11 @@ SETTINGS
   idle_amps describe the quad's draw. The quad's weight is not part of it -
   the game's own weight and thrust settings still change how it flies.
 
-  In [battery]: sag_effect=0 keeps the handling as the game has it while the
-  pack still drains and sags on the OSD. sag_compensation works like
-  Betaflight's vbat_sag_compensation.
+  In [battery]: thrust_at_cell_volts is the voltage a cell under load that
+  the game's thrust is for (3.6); 0 has a fresh pack fly exactly as the game
+  is tuned instead, as 1.1 did. sag_effect=0 keeps the handling as the game
+  has it while the pack still drains and sags on the OSD. sag_compensation
+  works like Betaflight's vbat_sag_compensation, against a fresh pack.
 
 
 HOW IT WORKS
@@ -76,8 +81,10 @@ HOW IT WORKS
 
   The game's quad has a battery voltage that sets how fast its motors can
   spin. The mod sets it every physics tick from the pack's voltage under
-  load, against a fresh pack's at the same current. Nothing else in the game
-  is changed.
+  load, against 3.6 V a cell: a fresh 1S whoop cruising at about 4.2 V a
+  cell has its motors 15-17% quicker than the game's, dipping to about 8%
+  in a punch; mid-pack it flies about as the game has it. Nothing else in
+  the game is changed.
 
   The packs come from published figures: the usual pack for each class, flight
   times (Meteor75 Pro 3-5 minutes flown hard; Air65 about 4 minutes; 5" on

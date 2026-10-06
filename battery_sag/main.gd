@@ -1,5 +1,5 @@
 extends Node
-## battery_sag 1.1
+## battery_sag 1.2
 ##
 ## A flight pack for The Zone FPV that drains, sags under load and changes how
 ## the quad flies. Loaded by zonemods (override.cfg in the game folder).
@@ -8,7 +8,7 @@ extends Node
 ##
 ## Uninstall: delete the battery_sag folder.
 
-const VERSION := "1.1"
+const VERSION := "1.2"
 const DIR := "res://battery_sag/"
 
 var _battery: Node = null
