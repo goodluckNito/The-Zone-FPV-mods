@@ -3,11 +3,17 @@ extends RefCounted
 ##
 ## Each physics tick, from the gyro (the quad's rotation rate, in its own
 ## frame) and the sticks:
-##   1. the rate the pilot asks for, from the game's own rates (z_rates)
+##   1. the rate the pilot asks for, from the game's own rates (z_rates); the
+##      gyro's reading, with a little noise (more in rough air)
 ##   2. a Betaflight-style rate PID per axis, in Betaflight's units and
 ##      scaling (pid.c): P on the rate error, I on its sum, D on the gyro's
 ##      change (low-passed, and cut at high throttle as TPA does),
-##      feedforward on the change of the stick's rate (smoothed)
+##      feedforward on the change of the stick's rate (smoothed, and eased
+##      off near full stick: ff_max_rate_limit, roll and pitch)
+##      While the stick's rate changes quickly, I gathers little (I-term
+##      relax: Betaflight's setpoint type, 40 deg/s over a 15 Hz low-pass)
+##      As the corrections near more than the motors have, I gathers less,
+##      and none once they need it all (iterm_windup)
 ##      Until the throttle has first passed airmode_start_throttle_percent
 ##      since arming, I is held at zero while the throttle is low (under 5%),
 ##      as Betaflight does, so it cannot wind up on the ground
@@ -22,7 +28,10 @@ extends RefCounted
 ##      first-order response
 ##   5. each motor's thrust from its speed, on the game's own thrust curve
 ##      for the drone (a quarter of the game's thrust at that speed), at its
-##      corner; and the drag torque of its prop, against its spin, for yaw
+##      corner; and for yaw, against its spin, the drag torque of its prop
+##      and the motor's own torque speeding the rotor up or slowing it (its
+##      moment of inertia times its change of speed: the spin it takes from
+##      the frame or gives back)
 ## The game still pushes the quad with one thrust at its centre, worked out
 ## from the motors' mean speed (fc.gd hands it that), along with its drag
 ## and wind; this adds, at each corner, that motor's difference from a
@@ -49,12 +58,19 @@ var gyro_dps := Vector3.ZERO
 var iterm := Vector3.ZERO        # the I terms (Betaflight units)
 var airmode_started := false     # the throttle has passed airmode_start since arming
 var resets := 0                 # times the I term and filters started afresh
+var noise_dps := 0.0             # the gyro's noise this tick (rms, deg/s)
 
 var _i := Vector3.ZERO
 var _prev_gyro := Vector3.ZERO
 var _dterm := Vector3.ZERO
 var _prev_sp := Vector3.ZERO
 var _ff := Vector3.ZERO
+var _relax := Vector3.ZERO       # the setpoint, low-passed, for I-term relax
+var _gn := Vector3.ZERO          # the gyro's noise, band-limited, unit variance
+var _rng := RandomNumberGenerator.new()
+var _air = null                  # dirty_air's Air node, for how rough the air is
+var _air_look := 0
+var _mix_range := 0.0            # the last mixer's spread of corrections (Betaflight's motorMixRange)
 var _fresh := true
 
 
@@ -63,6 +79,7 @@ func _reset() -> void:
 	_i = Vector3.ZERO
 	_dterm = Vector3.ZERO
 	_ff = Vector3.ZERO
+	_relax = Vector3.ZERO
 	_fresh = true
 
 
@@ -91,6 +108,23 @@ func step(p, dt: float, sp: Dictionary) -> void:
 	var basis: Basis = p.global_transform.basis
 	var av: Vector3 = p.angular_velocity
 	var gyro := _deg(av * basis)
+	# what the gyro reads: the rate plus noise - the motors' vibration that
+	# gets through the flight controller's filters, about a degree a second,
+	# and four times that in rough air (dirty_air's wash_level), as in
+	# Propwash FPV; band-limited at 100 Hz. The D term turns it into a fine
+	# jitter of the motors
+	var gn: float = prm["gyro_noise"]
+	noise_dps = 0.0
+	if gn > 0.0:
+		var wl := 0.0
+		var air = _dirty_air(p)
+		if air != null:
+			wl = clampf(float(air.get("wash_level")), 0.0, 2.0)
+		noise_dps = gn * (1.0 + 3.0 * wl)
+		var a := _pt1(dt, 100.0)
+		var sc := sqrt((2.0 - a) / a)
+		_gn += (Vector3(_rng.randfn(), _rng.randfn(), _rng.randfn()) * sc - _gn) * a
+		gyro += _gn * noise_dps
 	gyro_dps = gyro
 	var r = ZSettings.RATES
 	var want := _deg(Vector3(
@@ -126,6 +160,7 @@ func step(p, dt: float, sp: Dictionary) -> void:
 	if _fresh:
 		_prev_gyro = gyro
 		_prev_sp = want
+		_relax = want
 		_fresh = false
 	var err := want - gyro
 	var g: Dictionary = prm["pids"]   # per axis: Vector4(P, I, D, F)
@@ -151,18 +186,41 @@ func step(p, dt: float, sp: Dictionary) -> void:
 	_prev_sp = want
 	_ff += (raw_f - _ff) * _pt1(dt, prm["ff_hz"])
 	var f_term := kf * _ff
-	# I, held while the mixer is saturated (and pushing the same way); and
-	# kept at zero at low throttle until the throttle has first been up
+	# feedforward limited near the top of the rates (Betaflight's
+	# ff_max_rate_limit), roll and pitch: it may not push the rate past the
+	# limit, and stops once the stick asks for more than it
+	var fl: float = prm["ff_limit"]
+	if fl < 1.0:
+		var top := _deg(Vector3(z_rates.calc_rates(r.type, r.pitch, 1.0), 0.0, z_rates.calc_rates(r.type, r.roll, 1.0))).abs() * fl
+		for a in [0, 2]:
+			if f_term[a] * want[a] > 0.0:
+				if absf(want[a]) <= top[a]:
+					f_term[a] = clampf(f_term[a], (-top[a] - want[a]) * kp[a], (top[a] - want[a]) * kp[a])
+				else:
+					f_term[a] = 0.0
+	# I: kept at zero at low throttle until the throttle has first been up
 	if thr >= float(prm["airmode_start"]):
 		airmode_started = true
 	var di := ki * err * dt
+	# I-term relax (Betaflight's iterm_relax, setpoint type): while the stick
+	# moves quickly, I gathers little or nothing - else it winds up during
+	# the move and throws the quad back past where it stopped (bounce-back)
+	_relax += (want - _relax) * _pt1(dt, prm["relax_hz"])
+	var rx: Vector3 = prm["relax"]
+	for a in 3:
+		if rx[a] > 0.0:
+			di[a] *= maxf(0.0, 1.0 - absf(want[a] - _relax[a]) / 40.0)
+	# and as the corrections near more than the motors have, I gathers less,
+	# none once they need it all (Betaflight's iterm_windup, from the last
+	# mixer's spread)
+	var wp: float = prm["iterm_windup"]
+	if wp < 1.0:
+		di *= clampf((1.0 - _mix_range) / (1.0 - wp), 0.0, 1.0)
 	var lim: float = prm["iterm_limit"]
 	if thr < 0.05 and not airmode_started:
 		_i = Vector3.ZERO
 	else:
 		for a in 3:
-			if saturated and signf(di[a]) == signf(_i[a]):
-				continue
 			_i[a] = clampf(_i[a] + di[a], -lim, lim)
 	iterm = _i
 	var sum := p_term + _i + d_term + f_term
@@ -181,6 +239,7 @@ func step(p, dt: float, sp: Dictionary) -> void:
 		lo = minf(lo, mix[i])
 		hi = maxf(hi, mix[i])
 	var span := hi - lo
+	_mix_range = span
 	saturated = false
 	var t := thr
 	var air := bool(prm["airmode"])
@@ -200,6 +259,9 @@ func step(p, dt: float, sp: Dictionary) -> void:
 		t = t2
 	var idle: float = prm["idle"]
 	var s2 := 0.0
+	var kick := 0.0
+	var spin: Array = prm["spin"]
+	var per_rpm: float = prm["rotor_j"] * prm["omega_max"] / maxf(float(p.MAX_MOTOR_RPM), 1.0) / dt
 	for i in 4:
 		var raw: float = t + mix[i]
 		if raw > 1.0 or raw < 0.0:
@@ -207,23 +269,38 @@ func step(p, dt: float, sp: Dictionary) -> void:
 		var o := clampf(raw, 0.0, 1.0)
 		out[i] = idle + (1.0 - idle) * o
 		var target := maxf(kv * volts * out[i], idle_rpm)
+		var was: float = rpm[i]
 		rpm[i] = _lag(rpm[i], target, dt, tau_up, tau_down)
 		s2 += rpm[i]
+		# the motor's own torque on the frame as it speeds its rotor up or
+		# slows it down: the rotor's angular momentum, taken from the frame
+		kick += -float(spin[i]) * per_rpm * (rpm[i] - was)
 	mean_rpm = s2 / 4.0
 
 	# ---- the motors' thrust at their corners, and their drag torque ----
 	var centre := float(p.get_thrust_at_rpm(mean_rpm)) * 0.25
 	var up := basis.y.normalized()
 	var pos: Array = prm["pos"]
-	var spin: Array = prm["spin"]
 	var kq: float = prm["yaw_torque"]
-	var yaw := 0.0
+	var yaw := kick
 	for i in 4:
 		thrust[i] = float(p.get_thrust_at_rpm(rpm[i])) * 0.25
 		var local: Vector3 = pos[i]
 		p.apply_force(up * (thrust[i] - centre), basis * local)
 		yaw += -float(spin[i]) * kq * thrust[i]
 	p.apply_torque(up * yaw)
+
+
+# dirty_air's Air node, if it is loaded (looked for again now and then)
+func _dirty_air(p):
+	if _air != null and is_instance_valid(_air):
+		return _air
+	_air = null
+	_air_look -= 1
+	if _air_look <= 0:
+		_air_look = 250
+		_air = p.get_node_or_null("/root/ZoneMods/dirty_air/Air")
+	return _air
 
 
 # The quad's grip on the ground. The game gives it the physics engine's

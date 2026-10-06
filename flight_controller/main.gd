@@ -1,5 +1,5 @@
 extends Node
-## flight_controller 1.0
+## flight_controller 1.1
 ##
 ## A flight controller for The Zone FPV's quads: four motors, each with its
 ## own speed and thrust at its own corner, set by a Betaflight-style rate
@@ -16,7 +16,7 @@ extends Node
 ##
 ## Uninstall: delete the flight_controller folder.
 
-const VERSION := "1.0"
+const VERSION := "1.1"
 const DIR := "res://flight_controller/"
 const GAME := "res://player_rigid_body.gdc"
 const COPY := "base/player_rigid_body.gdc"
@@ -29,7 +29,13 @@ const DEFAULTS := {
 	"tpa_breakpoint": 1350.0,
 	"dterm_lowpass_hz": 100.0,
 	"feedforward_smoothing_hz": 30.0,
+	"feedforward_max_rate_limit": 90.0,
+	"iterm_relax": "RP",
+	"iterm_relax_cutoff": 15.0,
+	"rotor_inertia": 1.0,
+	"gyro_noise": 1.0,
 	"iterm_limit": 400.0,
+	"iterm_windup": 85.0,
 	"braking": true,
 	"ground_friction": 0.5,
 }
@@ -114,8 +120,9 @@ func _read_settings() -> void:
 						if c.has_section_key(sec, ax + "_" + term):
 							pids[name][ax][i] = float(c.get_value(sec, ax + "_" + term))
 						i += 1
-	_say("airmode %s, idle %s percent, TPA %s from %s, ground friction %s; PIDs (P/I/D/F roll, pitch, yaw) - 5inch %s, whoop %s" % [
+	_say("airmode %s, idle %s percent, TPA %s from %s, I-term relax %s at %s Hz, feedforward limit %s percent, rotor inertia %s, gyro noise %s deg/s, ground friction %s; PIDs (P/I/D/F roll, pitch, yaw) - 5inch %s, whoop %s" % [
 		"on" if bool(cfg["airmode"]) else "off", str(cfg["idle_percent"]), str(cfg["tpa_rate"]), str(cfg["tpa_breakpoint"]),
+		str(cfg["iterm_relax"]), str(cfg["iterm_relax_cutoff"]), str(cfg["feedforward_max_rate_limit"]), str(cfg["rotor_inertia"]), str(cfg["gyro_noise"]),
 		str(cfg["ground_friction"]), _pid_text("5inch"), _pid_text("whoop")])
 	settings_gen += 1
 
@@ -176,6 +183,13 @@ func params_for(vid: String, mass: float) -> Dictionary:
 		var a: Array = prof[pair[1]]
 		ax[pair[0]] = Vector4(a[0], a[1], a[2], a[3])
 	var tau := clampf(float(d["motor_ms"]), 1.0, 500.0) / 1000.0
+	# the rotors (prop and motor bell): their moment of inertia and top speed,
+	# from the prop's size - a 31 mm whoop prop on an 0802 motor about 3.5e-8
+	# kg m2 at 52,000 rpm, a 5" prop on a 2306 about 5e-6 at 32,000
+	var prop := clampf(float(d["prop_mm"]), 10.0, 400.0) / 31.0
+	var rotor_j := 3.5e-8 * pow(prop, 3.56) * maxf(float(cfg["rotor_inertia"]), 0.0)
+	var omega_max := 52000.0 * pow(prop, -0.33) * TAU / 60.0
+	var rx := str(cfg["iterm_relax"]).to_upper()
 	# quad X, forward is -z: front-left, front-right, rear-left, rear-right;
 	# front-left and rear-right spin anticlockwise seen from above
 	var pos := [Vector3(-s, 0, -s), Vector3(s, 0, -s), Vector3(-s, 0, s), Vector3(s, 0, s)]
@@ -197,15 +211,22 @@ func params_for(vid: String, mass: float) -> Dictionary:
 		"airmode_start": clampf(float(cfg["airmode_start_throttle_percent"]) / 100.0, 0.0, 1.0),
 		"tpa_rate": clampf(float(cfg["tpa_rate"]) / 100.0, 0.0, 1.0), "tpa_breakpoint": bp,
 		"dterm_hz": float(cfg["dterm_lowpass_hz"]), "ff_hz": float(cfg["feedforward_smoothing_hz"]),
+		"ff_limit": clampf(float(cfg["feedforward_max_rate_limit"]) / 100.0, 0.0, 1.0),
+		"relax": Vector3(1.0 if rx.begins_with("RP") else 0.0, 1.0 if rx == "RPY" else 0.0, 1.0 if rx.begins_with("RP") else 0.0),
+		"relax_hz": clampf(float(cfg["iterm_relax_cutoff"]), 1.0, 100.0),
+		"rotor_j": rotor_j, "omega_max": omega_max,
+		"gyro_noise": clampf(float(cfg["gyro_noise"]), 0.0, 20.0),
 		"iterm_limit": float(cfg["iterm_limit"]),
+		"iterm_windup": clampf(float(cfg["iterm_windup"]) / 100.0, 0.0, 1.0),
 		"ground_friction": clampf(float(cfg["ground_friction"]), 0.0, 2.0),
 	}
 	var key := "%s %.4f" % [vid, mass]
 	if not _said.has(key):
 		_said[key] = true
-		_say("flying %s (%d g): motors %d mm apart, %d ms; inertia %d g cm2 roll and pitch, %d yaw; %s PIDs" % [
+		_say("flying %s (%d g): motors %d mm apart, %d ms; inertia %d g cm2 roll and pitch, %d yaw; rotors %s g cm2 each, up to %d rpm; %s PIDs" % [
 			d["name"], int(round(mass * 1000.0)), int(round(wb * 1000.0)), int(round(tau * 1000.0)),
-			int(round(roll * 1e7)), int(round(yaw * 1e7)), str(d["pids"])])
+			int(round(roll * 1e7)), int(round(yaw * 1e7)), str(snappedf(rotor_j * 1e7, 0.01)),
+			int(round(omega_max * 60.0 / TAU / 100.0)) * 100, str(d["pids"])])
 		_write_status()
 	return p
 
