@@ -45,7 +45,7 @@ A gamepad set up so the resting stick already means zero throttle is left alone.
 
 ## Prop Damage
 
-Props can take damage, causing gyro noise and instability. Props can also break. Damage is fixed on reset, and ducted props take less damage.
+Props can take damage, causing gyro noise and instability. Props can also break. Damage is fixed on reset, and ducted props take less damage. If fpv_osd is installed, it will put the damage UI into the OSD format.
 
 ## examples/glb_anim
 Basic mod that plays and loops animations within a .glb file/map. It's an example mod, but it does allow for dynamic maps with moving parts and colliders.
