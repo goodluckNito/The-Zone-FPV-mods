@@ -45,7 +45,10 @@ func zm_vehicle_changed(id: String) -> void:
 
 
 ## The pack, for an OSD: cell_voltage (volts a cell under load), mah_used,
-## cells, current (amps), lihv, capacity_mah, pack (e.g. "6S 1300 mAh LiPo").
+## cells, current (amps), lihv, capacity_mah, pack (e.g. "6S 1300 mAh LiPo"),
+## and held - the pack is being kept at one voltage (hold_cell_volts), so its
+## mAh are still counted but are not a pack running down, and an OSD should
+## not warn on them.
 func zm_battery() -> Dictionary:
 	return _battery.report() if _battery != null and is_instance_valid(_battery) else {}
 

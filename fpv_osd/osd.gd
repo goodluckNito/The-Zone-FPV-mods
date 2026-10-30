@@ -440,6 +440,7 @@ var _shown_cells := 1
 var _cells_prev := 0
 var _shown_lihv := true
 var _from_mod := false  # the battery comes from another mod
+var _held := false      # that mod holds the pack at one voltage (battery_sag)
 var _vid := ""          # the drone chosen in the game's menu
 var _preset := {}       # that drone from another mod (the drones mod's zm_vehicle), or {}
 var _capacity := 0.0
@@ -1242,9 +1243,11 @@ func _battery(dt: float, thr: float, armed: bool) -> void:
 		_shown_cells = clampi(int(prov.get("cells", _cell_count())), 1, 8)
 		_shown_lihv = bool(prov.get("lihv", _bat("battery_lihv")))
 		_capacity = float(prov.get("capacity_mah", 0.0))
+		_held = bool(prov.get("held", false))
 		return
 	var n := _cell_count()
 	_shown_cells = n
+	_held = false
 	_shown_lihv = bool(_bat("battery_lihv"))
 	var cap := maxf(float(_bat("battery_mah")), 50.0) / 1000.0
 	_capacity = cap * 1000.0
@@ -1443,7 +1446,13 @@ func _battery_warnings() -> void:
 				_t_vchange = _now
 	_cstate = BAT_OK
 	var pct := int(cfg["low_battery_percent"])
-	if pct > 0 and _capacity > 0.0:
+	# A pack held at one voltage (battery_sag's hold_cell_volts) is there to
+	# fly at that voltage for as long as you like. Its mAh still count, and
+	# are still shown, but they are not a pack running down, so they do not
+	# warn: the mAh would pass the pack's capacity and leave LAND NOW up for
+	# the rest of the flight however full the voltage says the pack is. The
+	# voltage still warns, so a pack held at 3.2 V says so.
+	if pct > 0 and _capacity > 0.0 and not _held:
 		var left := int(clampf((_capacity - _mah) * 100.0 / _capacity, 0.0, 100.0))
 		if left <= 0:
 			_cstate = BAT_CRITICAL

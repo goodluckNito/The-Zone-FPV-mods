@@ -343,7 +343,8 @@ func motor_scale(throttle: float) -> float:
 
 func report() -> Dictionary:
 	return {"cell_voltage": _hold() if _hold() > 0.0 else cell_voltage, "mah_used": mah_used, "cells": cells(), "current": current,
-		"lihv": bool(pack["lihv"]), "capacity_mah": capacity_mah(), "pack": describe(pack)}
+		"lihv": bool(pack["lihv"]), "capacity_mah": capacity_mah(), "pack": describe(pack),
+		"held": _hold() > 0.0}
 
 
 func _physics_process(dt: float) -> void:
