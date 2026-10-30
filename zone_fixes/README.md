@@ -1,0 +1,12 @@
+# Zone fixes
+
+Small independently selectable game fixes, without replacing flight physics. Copy `zone_fixes` beside the executable and restart once. The existing ZoneMods loader discovers it; mod_settings exposes the two feature switches. The optional live-lifecycle loader can unload this mod without restart.
+
+- Tutorial progress: completed lessons stay replayable even if an earlier record is absent. Resume preserves the active lesson, or starts the first unfinished lesson. Completed rows are labelled. Only completion records the game actually wrote enter a separate verified checkpoint at `user://zone_fixes/progress.cfg`; startup merges them with the native profile. Unknown metadata is preserved. To deliberately reset tutorial progress, remove both the native completion records and this checkpoint while the game is closed.
+- Escape navigation: Escape returns from native rates, camera, drone and game settings to the pause hub; the next Escape resumes flight. It closes the original mod overlay, optional catalog and optional Flight Desk back to that hub. Assignment detection and unapplied drafts retain their cancellation/confirmation behavior. Optional Controller/Display entries appear when Flight Desk is installed. The feature also works with stock mod_settings alone.
+
+Extend `FEATURES` in main.gd with one small Node script and one default config key. Freeing a feature restores its button callbacks, labels and injected controls. No game source or profile is distributed.
+
+Reproduction before the change: a completed lesson after a missing record was locked; pressing native Play while paused cleared the active tutorial. Both failed in the native game and pass with this mod. The current contiguous completion records read back and stayed unlocked even before the fix: the original cause of their particular loss/lock report is not established. The checkpoint protects future recorded completions; it cannot reconstruct unwritten history or share separate Steam/Lab profiles.
+
+Validation: pure progress-store checks including replacement of an existing checkpoint, plus 23 native checks covering replay, disk roundtrip, active lesson preservation, actual Escape dispatch, native subpages, catalog/overlay, draft protection and returning to flight. Camera visibility depends on native lighting mode. Tested with Godot 4.7.2; future scene/script changes may require updating the adapter.
