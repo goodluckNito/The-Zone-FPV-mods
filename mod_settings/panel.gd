@@ -478,7 +478,7 @@ func _row(id: String, item: Dictionary, raw: String) -> Control:
 		row.add_child(r)
 	var tip: String = item["desc"]
 	if is_switch:
-		tip = "Turn %s on or off. Takes effect when the game is next started." % host.mod_name(id)
+		tip = host.toggle_tip(id) if host.has_method("toggle_tip") else "Requires restart"
 	var type: int = item["type"]
 	var value = preload("cfgdoc.gd").from_raw(raw, type)
 	var send := func(v):

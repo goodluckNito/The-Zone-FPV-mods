@@ -13,7 +13,8 @@ extends Node
 ## is called a moment after a change, and reads its settings.cfg again. A mod
 ## can list settings that still need a restart in
 ##     func zm_restart_keys() -> PackedStringArray    # "section/key", "section/*"
-## Turning a mod on or off always needs one, as does anything of a mod
+## Audited loader lifecycle hooks can toggle a mod immediately; unknown mods
+## still require restart, as does anything of a mod
 ## without zm_apply_settings; the page marks those and says so.
 ## A mod whose settings do nothing just now (another mod has taken over)
 ## can say so, shown in place of the page's usual line, with
@@ -604,7 +605,7 @@ func mod_status(id: String) -> String:
 
 func is_live(id: String, sec: String, key: String, file := "") -> bool:
 	if sec == "mod" and key == "enabled" and file == "":
-		return false
+		return _core.has_method("can_toggle") and _core.can_toggle(id)
 	var n := _node(id)
 	if n == null or not n.has_method("zm_apply_settings"):
 		return false
@@ -743,6 +744,15 @@ func _flush(apply := true) -> void:
 	_write_status()
 	if apply:
 		for id in done:
+			if done[id].has("mod/enabled") and _core.has_method("can_toggle") and _core.can_toggle(id):
+				var enabled := str(done[id]["mod/enabled"]).to_lower() != "false"
+				var error := str(_core.call("set_mod_enabled", id, enabled))
+				if error == "":
+					if _restart.has(id): _restart[id].erase("mod/enabled")
+				else:
+					_save_error = error
+					if not _restart.has(id): _restart[id] = {}
+					_restart[id]["mod/enabled"] = true
 			var any_live := false
 			for k in done[id]:
 				var sk := str(k)
@@ -751,7 +761,7 @@ func _flush(apply := true) -> void:
 				if is_live(id, parts[0], parts[1], f):
 					any_live = true
 			var n := _node(id)
-			if any_live and n != null:
+			if any_live and n != null and n.has_method("zm_apply_settings"):
 				n.call("zm_apply_settings")
 	_update_panels()
 
@@ -802,3 +812,6 @@ func _keep_last_status() -> void:
 		var f := FileAccess.open(d.path_join("status.last.txt"), FileAccess.WRITE)
 		if f != null:
 			f.store_string(FileAccess.get_file_as_string(d.path_join("status.txt")))
+
+func toggle_tip(id: String) -> String:
+	return "Enable/disable immediately, without restarting." if _core.has_method("can_toggle") and _core.can_toggle(id) else "Enable/disable after restarting the game."
